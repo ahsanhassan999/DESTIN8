@@ -1,4 +1,4 @@
-# Application Flow Documentation — Travellure
+# Application Flow Documentation — DESTIN8
 
 > **Version**: 1.0
 > **Last Updated**: 2026-03-03
