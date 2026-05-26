@@ -1,4 +1,4 @@
-# Technology Stack Document — Travellure
+# Technology Stack Document — DESTIN8
 
 > **Version**: 1.0
 > **Last Updated**: 2026-03-04
