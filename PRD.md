@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 
 ## 1. Product Overview
-- **Project Title**: Travellure
+- **Project Title**: DESTIN8
 - **Version**: 1.0
 - **Last Updated**: 2026-03-03
 - **Owner**: Syed Ahsan Hassan Rizvi
