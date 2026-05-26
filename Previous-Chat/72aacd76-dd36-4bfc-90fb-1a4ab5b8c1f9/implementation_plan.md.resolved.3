@@ -1,0 +1,98 @@
+# Destin8 Admin Panel - Full Feature Implementation Plan
+
+## Overview
+The Admin Panel serves as the nerve center for the Destin8 platform. It enables platform administrators to govern agencies, moderate content, and manage all users. The panel is web-based (React + Vite) and connects to the FastAPI backend.
+
+---
+
+## Pages & Features
+
+### Page 1: Analytics Dashboard (Home Screen)
+A high-level overview of platform health, shown immediately after login.
+
+**Cards/Metrics:**
+- Total Travelers registered
+- Total Agencies (split by: Pending / Approved / Rejected)
+- Total Travel Packages posted
+- New registrations in the last 7 days
+
+**Implementation:**
+- **Backend:** `GET /api/admin/stats` — returns all aggregate counts via a single efficient query.
+- **Frontend:** `AnalyticsScreen.jsx` with stat cards and clean data layout using the Destin8 Design System.
+
+---
+
+### Page 2: Agency Approvals *(Already Built — Needs Minor Enhancements)*
+Review and approve/reject travel agency registrations.
+
+**Enhancements to existing screen:**
+- Show **rejection reason** on rejected agency cards.
+- Add a **details expandable row** showing full business address and license number.
+- Filter tabs: Pending / Approved / Rejected / All.
+
+---
+
+### Page 3: User Directory
+A searchable, filterable list of ALL users on the platform (Travelers, Agencies, Admins).
+
+**Features:**
+- Table columns: Name, Email, Role, Status, Date Joined.
+- Filter by role: All / Traveler / Agency / Admin.
+- **Suspend/Activate** toggle: Instantly block or restore a user's access without deleting their data.
+- **Create Admin Account** button: Opens a modal to add a new admin/staff account with name, email, and password. Only creates `admin` role accounts — Travelers/Agencies register via the mobile app.
+- **View Details** panel: Click a user to see a side panel with their full info (read-only). For agencies, this links to their profile.
+
+**Backend:**
+- `GET /api/admin/users?role=traveler|agency|admin` — Fetch all users, filtered by role.
+- `PUT /api/admin/users/{user_id}/suspend` — Sets `status` to `suspended`.
+- `PUT /api/admin/users/{user_id}/activate` — Sets `status` back to `active`.
+- `POST /api/admin/users` — Create a new admin account (role locked to `admin`).
+
+**Note on Password/Email Editing:** Admins do **not** directly edit user passwords or emails. If a user reports a login issue, the proper solution is account suspension + directing them to a support channel. This follows security best practices.
+
+---
+
+### Page 4: Package Moderation *(Relevant after Week 2 - Packages are built)*
+Once agencies can post Travel Packages, this screen allows the admin to oversee all content.
+
+**Features:**
+- Table: Package Title, Agency Name, Price, Duration, Status (Active / Taken Down).
+- **Take Down** button: Marks a package as inactive/hidden so travelers can't see it.
+- **Restore** button: Re-activates a taken-down package.
+- View package details in an expandable row.
+
+**Backend:**
+- `GET /api/admin/packages` — Fetch all packages across all agencies.
+- `PUT /api/admin/packages/{package_id}/takedown`
+- `PUT /api/admin/packages/{package_id}/restore`
+
+> [!NOTE]
+> This page will be built **alongside** the Package CRUD feature in Week 2. It is listed here for completeness.
+
+---
+
+## Structural Changes (Frontend)
+
+### AdminLayout Component
+The sidebar and top bar need to be extracted from `DashboardScreen.jsx` into a reusable `AdminLayout` so each page doesn't duplicate the navigation.
+
+**Sidebar Navigation Links:**
+1. 📊 Dashboard (Analytics)
+2. ✅ Agency Approvals
+3. 👥 User Directory
+4. 📦 Package Moderation *(greyed out until Week 2)*
+
+### Router Update
+`App.jsx` will wrap all protected pages inside `AdminLayout` using React Router's nested routes.
+
+---
+
+## Execution Order
+
+| Priority | Page | Depends On |
+|---|---|---|
+| 1 | Admin Layout Refactor | Nothing |
+| 2 | Analytics Dashboard | Layout |
+| 3 | Agency Approvals Enhancements | Layout |
+| 4 | User Directory | Layout + New backend routes |
+| 5 | Package Moderation | Week 2 Package backend |

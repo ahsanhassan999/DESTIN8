@@ -1,0 +1,47 @@
+# User Management in Admin Panel
+
+This plan outlines the steps to build a fully functional "User Management" dashboard in the Admin Panel. This will allow the admin to view all registered users, update their details (such as email and password), and manually create new accounts.
+
+## User Review Required
+> [!IMPORTANT]
+> 1. **User Types**: Should the "Create Account" feature allow the admin to create *any* type of user (Traveler, Agency, or another Admin)? For now, I will implement a role dropdown so you can create any type.
+> 2. **Password Updates**: Since passwords are hashed in the database, the admin will be able to set a *new* password for a user, but cannot view their current password. 
+> 3. **UI Layout**: To support multiple pages (Agency Approvals & User Management), I will extract the Sidebar into a reusable `AdminLayout` component so navigation is seamless.
+
+## Proposed Changes
+
+### 1. Backend: Schemas
+#### [MODIFY] `backend/app/schemas.py`
+- Add `UserUpdate`: A schema that allows optional fields (email, name, phone, password).
+- Add `AdminUserCreate`: A schema for the admin to create a user with a specific role.
+
+### 2. Backend: Admin Endpoints
+#### [MODIFY] `backend/app/routers/admin.py`
+- **`GET /api/admin/users`**: Fetch a list of all users from the database, omitting hashed passwords.
+- **`POST /api/admin/users`**: Create a new user, hash the provided password, and assign the specified role.
+- **`PUT /api/admin/users/{user_id}`**: Update an existing user's details. If a new password is provided, it will be hashed and updated.
+
+### 3. Frontend: Layout Refactoring
+#### [NEW] `admin-web/src/components/AdminLayout.jsx`
+- Extract the sidebar and top navigation from `DashboardScreen.jsx` into a reusable layout wrapper.
+- Add links for "Agency Approvals" and "User Management".
+#### [MODIFY] `admin-web/src/App.jsx`
+- Update routes to wrap screens with `AdminLayout`.
+
+### 4. Frontend: User Management Screen
+#### [NEW] `admin-web/src/screens/UserManagementScreen.jsx`
+- **Data Table**: Displays a list of all users (Name, Email, Role, Status).
+- **Edit Modal**: When "Edit" is clicked, a popup appears allowing the admin to change the user's email, name, phone, or set a new password.
+- **Create Modal**: A "Create User" button that opens a form to register a new user, select their role (Admin, Traveler, Agency), and set initial credentials.
+#### [NEW] `admin-web/src/screens/UserManagementScreen.css`
+- Styles for the data table and the modal overlays using your existing Design System colors.
+
+## Verification Plan
+
+### Manual Verification
+1. Launch the updated React web server and FastAPI backend.
+2. Log into the Admin Panel.
+3. Navigate to the new "User Management" tab.
+4. Create a new Admin user through the "Create User" button.
+5. Click "Edit" on an existing traveler, change their email and password, and save.
+6. Verify the changes persist by trying to log into the mobile app with the new credentials.
