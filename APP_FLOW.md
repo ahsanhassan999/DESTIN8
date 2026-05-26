@@ -10,7 +10,7 @@
 ## 1. Entry Points
 
 ### 1.1 Direct App Launch
-- User opens the Travellure app on Android via Expo Go.
+- User opens the DESTIN8 app on Android via Expo Go.
 - **First launch** → Splash Screen → Onboarding / Welcome Screen.
 - **Returning user (token valid)** → Splash Screen → Home Screen.
 - **Returning user (token expired)** → Splash Screen → Login Screen.
