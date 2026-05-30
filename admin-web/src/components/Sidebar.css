@@ -1,0 +1,174 @@
+/* ─── Sidebar ────────────────────────────────────────────────────────────── */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.sidebar--collapsed { width: var(--sidebar-collapsed); }
+
+/* Brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 64px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-plum), var(--color-lavender));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.sidebar-brand-text { display: flex; flex-direction: column; }
+.sidebar-brand-name {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+.sidebar-brand-sub {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sidebar-label);
+}
+
+/* Nav */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sidebar-section { display: flex; flex-direction: column; gap: 2px; }
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--sidebar-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--sidebar-text);
+  transition: all var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+}
+.sidebar-item:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--color-text);
+}
+.sidebar-item--active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 700;
+}
+.sidebar-item-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar-item--active .sidebar-item-icon { color: var(--sidebar-active-text); }
+.sidebar-item:not(.sidebar-item--active) .sidebar-item-icon { color: var(--sidebar-label); }
+.sidebar-item-label { flex: 1; }
+.sidebar-item-badge {
+  background: var(--color-lavender-light);
+  color: var(--color-plum);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+}
+.sidebar-item--active .sidebar-item-badge { background: var(--color-plum); color: #fff; }
+
+/* Footer */
+.sidebar-footer {
+  padding: 12px 10px;
+  border-top: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition);
+}
+.sidebar-user:hover { background: var(--sidebar-hover-bg); }
+.sidebar-user-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sidebar-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-user-role {
+  font-size: 11px;
+  color: var(--sidebar-label);
+  font-weight: 500;
+}
+.sidebar-logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--sidebar-label);
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+}
+.sidebar-logout:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* Toggle button */
+.sidebar-toggle {
+  position: absolute;
+  right: -13px;
+  top: 78px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1.5px solid var(--sidebar-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  z-index: 101;
+}
+.sidebar-toggle:hover { background: var(--color-lavender-light); color: var(--color-plum); border-color: var(--color-lavender); }
+.sidebar-toggle svg { transition: transform 0.25s ease; }
+.sidebar-toggle svg.rotate-180 { transform: rotate(180deg); }

@@ -1,0 +1,20 @@
+.approvals-page { display: flex; flex-direction: column; }
+.expanded-row { background: var(--color-lavender-dim) !important; }
+.expanded-row:hover { background: var(--color-lavender-dim) !important; }
+.expanded-row td { padding: 0 !important; border-bottom: 2px solid var(--color-lavender-light); }
+.expanded-content {
+  padding: 18px 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  animation: slideUp 0.15s ease;
+}
+.expanded-details { display: flex; flex-wrap: wrap; gap: 16px 32px; flex: 1; }
+.detail-item { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
+.detail-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-faint); }
+.detail-value { font-size: 13.5px; color: var(--color-text); font-weight: 500; }
+.detail-value--highlight { color: var(--color-danger); background: var(--color-danger-bg); padding: 4px 8px; border-radius: var(--radius-sm); font-size: 12.5px; }
+.expanded-actions { display: flex; gap: 10px; align-items: flex-start; flex-shrink: 0; }
+.reject-form { display: flex; flex-direction: column; min-width: 280px; }
+.reject-form .form-input { font-size: 13px; padding: 8px 12px; }
