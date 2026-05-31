@@ -237,23 +237,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#191c1d',
     padding: 0,
+    backgroundColor: 'transparent',
   },
 
   // Cards List
   list: {
-    gap: 0,
+    gap: 16,
   },
   card: {
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 20,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 123, 182, 0.15)',
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
   },
   cardUnread: {
-    backgroundColor: 'rgba(150, 123, 182, 0.05)',
+    borderLeftWidth: 4,
   },
   avatar: {
     width: 48,
@@ -269,6 +276,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   cardHeader: {
     flexDirection: 'row',

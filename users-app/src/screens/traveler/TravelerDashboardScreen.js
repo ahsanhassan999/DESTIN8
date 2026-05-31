@@ -390,6 +390,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2c2f30',
     padding: 0,
+    backgroundColor: 'transparent',
   },
 
   // Category filters

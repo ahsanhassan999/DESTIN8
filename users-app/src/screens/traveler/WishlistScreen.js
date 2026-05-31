@@ -292,26 +292,31 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   cardTitle: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 16,
     color: '#191c1d',
     marginBottom: 4,
+    backgroundColor: 'transparent',
   },
   cardMeta: {
     fontFamily: 'Manrope_500Medium',
     fontSize: 13,
     color: '#4a454e',
     marginBottom: 6,
+    backgroundColor: 'transparent',
   },
   cardPrice: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 14,
     color: '#52396f',
+    backgroundColor: 'transparent',
   },
   removeBtn: {
     padding: 8,
+    backgroundColor: 'transparent',
   },
 
   // Suggestion Section
@@ -421,5 +426,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#191c1d',
     padding: 0,
+    backgroundColor: 'transparent',
   },
 });
