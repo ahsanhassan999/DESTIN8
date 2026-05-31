@@ -12,16 +12,24 @@ export default function AppHeader({ title, showBack, navigation }) {
   const themeColor = isAgency ? '#967BB6' : '#52396F';
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top, height: (Platform.OS === 'ios' ? 60 : 54) + insets.top }, !showBack && styles.headerBorder]}>
+    <View style={[
+      styles.header,
+      {
+        paddingTop: insets.top,
+        height: 64 + insets.top,
+      }
+    ]}>
       <View style={styles.left}>
         {showBack ? (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
             <MaterialIcons name="arrow-back" size={24} color={themeColor} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.btn}>
-            <MaterialIcons name="menu" size={24} color={themeColor} />
-          </TouchableOpacity>
+          <View style={{ width: 40 }} />
         )}
       </View>
 
@@ -34,14 +42,19 @@ export default function AppHeader({ title, showBack, navigation }) {
       </View>
 
       <View style={styles.right}>
-        {!showBack && (
-          <TouchableOpacity style={styles.avatarWrap} onPress={() => navigation.navigate('Profile')}>
+        {!showBack ? (
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.7}
+          >
             <Image
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBVKbrrA85UnvoxERTRwyMhFqxHqGaEy7BuyonQ6AXv5I3-75TJR2zzpqIWwdNxTaDhQFsw4GcPjhEEAnnMCXXtU2vs7sDgJ6eA1ZCJQO9oAp1-seai-wjjpNfGyYhjQ8dtFtSZoZEKO8C1V1hFrhlgcqQ_FErAmxPCSEoc1l7KaMf6T0fh-_9RDqm5P0RElb818xuMlUTqkX2wDEpGwYFradawmni7DQDihv9vbZhjZcANE1NH2Qfqg8QKTyEIRfdk_-fvIIg7WNRe' }}
               style={styles.avatar}
             />
-            <Text style={styles.avatarName}>{user?.name || 'Mr Khan'}</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
         )}
       </View>
     </View>
@@ -53,18 +66,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 24,
     zIndex: 100,
-  },
-  headerBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(171,173,174,0.1)',
+    borderBottomColor: 'rgba(44, 47, 48, 0.06)',
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 4,
+    width: '100%',
   },
-  left: { width: 48, alignItems: 'flex-start' },
-  center: { flex: 1, alignItems: 'center' },
-  right: { width: 64, alignItems: 'flex-end', justifyContent: 'center' },
-  btn: { padding: 4 },
+  left: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  right: {
+    width: 40,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontFamily: 'Epilogue_600SemiBold',
     fontSize: 18,
@@ -73,20 +107,19 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 20,
-    letterSpacing: 2,
+    letterSpacing: -1,
   },
-  avatarWrap: { alignItems: 'center' },
+  avatarWrap: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(150,123,182,0.2)',
-  },
-  avatarName: {
-    fontFamily: 'Manrope_500Medium',
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 2,
+    borderColor: 'rgba(150, 123, 182, 0.2)',
   },
 });

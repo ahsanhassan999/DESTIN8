@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Image, ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -35,18 +36,19 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={s.root}>
+      <SafeAreaView style={s.root} edges={['top', 'left', 'right']}>
         {/* Header Bar */}
         <View style={s.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-            <MaterialIcons name="arrow-back" size={24} color={C.primary} style={{ marginRight: 2 }} />
-            <Text style={s.logoText}>Destin8</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
+            <MaterialIcons name="arrow-back" size={24} color={C.primary} />
           </TouchableOpacity>
+          <Text style={s.logo}>DESTIN8</Text>
+          <View style={{ width: 40 }} />
         </View>
 
         {/* Asymmetrical Background Elements for Kinetic Editorial look */}
-        <View style={s.bgOrb1} />
-        <View style={s.bgOrb2} />
+        <View style={s.bgOrb1} pointerEvents="none" />
+        <View style={s.bgOrb2} pointerEvents="none" />
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           <View style={s.content}>
@@ -148,7 +150,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             </View>
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
@@ -158,19 +160,33 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50,
-    backgroundColor: 'rgba(245,246,247,0.8)',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingHorizontal: 24, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center',
+    height: 64,
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(44, 47, 48, 0.06)',
     shadowColor: '#2C2F30',
-    shadowOffset: { width: 0, height: 32 },
-    shadowOpacity: 0.06,
-    shadowRadius: 48,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 4,
+    width: '100%',
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center' },
-  logoText: { fontFamily: 'Epilogue_700Bold', fontSize: 20, color: C.primary, letterSpacing: -0.5 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 20,
+    color: C.primary,
+    letterSpacing: -1,
+  },
 
   // Background blur elements
   bgOrb1: {
@@ -194,7 +210,7 @@ const s = StyleSheet.create({
     opacity: 0.3,
   },
 
-  scroll: { flexGrow: 1, paddingTop: Platform.OS === 'ios' ? 120 : 90 },
+  scroll: { flexGrow: 1, paddingTop: 24 },
 
   content: { flex: 1, paddingHorizontal: 24, paddingBottom: 40, zIndex: 10 },
 

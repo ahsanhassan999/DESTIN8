@@ -29,6 +29,7 @@ import MyTripsScreen           from '../screens/traveler/MyTripsScreen';
 // ── Agency
 import AgencyDashboardScreen from '../screens/agency/AgencyDashboardScreen';
 import PostPackageScreen     from '../screens/agency/PostPackageScreen';
+import MyPackagesScreen      from '../screens/agency/MyPackagesScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -209,7 +210,7 @@ function AgencyTabs() {
       />
       <Tab.Screen
         name="Post Package"
-        component={PostPackageScreen}
+        component={MyPackagesScreen}
         options={{ tabBarLabel: 'Packages' }}
       />
       <Tab.Screen
@@ -257,6 +258,7 @@ function AgencyStack() {
   return (
     <Stack.Navigator screenOptions={NO_HEADER} initialRouteName="AgencyTabs">
       <Stack.Screen name="AgencyTabs" component={AgencyTabs} />
+      <Stack.Screen name="PostPackageForm" component={PostPackageScreen} />
       <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
       <Stack.Screen name="Profile"    component={AgencyProfileScreen} />
     </Stack.Navigator>

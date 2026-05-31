@@ -15,6 +15,10 @@ export default function AgencyDashboardScreen({ navigation }) {
     <View style={styles.container}>
       <AppHeader navigation={navigation} />
 
+      {/* Asymmetrical Background Elements */}
+      <View style={styles.bgOrb1} pointerEvents="none" />
+      <View style={styles.bgOrb2} pointerEvents="none" />
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
@@ -219,4 +223,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionLabel: { fontFamily: 'Epilogue_600SemiBold', fontSize: 16, lineHeight: 22 },
+  bgOrb1: {
+    position: 'absolute',
+    top: 100,
+    left: -64,
+    width: 256,
+    height: 256,
+    borderRadius: 128,
+    backgroundColor: '#E8E1F0',
+    opacity: 0.2,
+  },
+  bgOrb2: {
+    position: 'absolute',
+    bottom: 120,
+    right: -64,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: '#cecdff',
+    opacity: 0.3,
+  },
 });

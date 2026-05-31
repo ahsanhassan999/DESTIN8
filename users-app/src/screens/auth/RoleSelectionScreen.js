@@ -33,11 +33,15 @@ export default function RoleSelectionScreen({ navigation }) {
       {/* ── Fixed Header ── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.closeBtn} activeOpacity={0.7}>
-          <MaterialIcons name="close" size={24} color={PRIMARY} />
+          <MaterialIcons name="arrow-back" size={24} color={PRIMARY} />
         </TouchableOpacity>
         <Text style={s.logo}>DESTIN8</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      {/* Asymmetrical Background Elements for Kinetic Editorial look */}
+      <View style={s.bgOrb1} pointerEvents="none" />
+      <View style={s.bgOrb2} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: 140 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         {/* ── Hero Section ── */}
@@ -98,7 +102,7 @@ export default function RoleSelectionScreen({ navigation }) {
         <View style={s.footer}>
           <View style={s.infoRow}>
             <MaterialIcons name="info" size={20} color={ON_SURF_VAR} />
-            <Text style={s.infoTxt}>You can change your account type later in settings.</Text>
+            <Text style={s.infoTxt}>You cannot change your account type later.</Text>
           </View>
           <TouchableOpacity
             style={[s.nextBtn, !selected && s.nextBtnOff]}
@@ -161,6 +165,28 @@ const s = StyleSheet.create({
     fontSize: 20,
     color: PRIMARY,
     letterSpacing: -1,
+  },
+
+  // Background blur elements
+  bgOrb1: {
+    position: 'absolute',
+    top: 40,
+    left: -64,
+    width: 256,
+    height: 256,
+    borderRadius: 128,
+    backgroundColor: '#D1C4E9', // Light lavender orb
+    opacity: 0.2,
+  },
+  bgOrb2: {
+    position: 'absolute',
+    bottom: 200,
+    right: -64,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: '#cecdff', // Light blue-purple orb
+    opacity: 0.3,
   },
 
   scroll: {

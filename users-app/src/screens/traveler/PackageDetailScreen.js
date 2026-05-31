@@ -1,18 +1,214 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
+const getPackageDays = (pkg) => {
+  if (pkg.days && pkg.days.length > 0) {
+    return pkg.days;
+  }
+  
+  const destLower = (pkg.destination || '').toLowerCase();
+  const titleLower = (pkg.title || '').toLowerCase();
+  
+  if (destLower.includes('peru') || titleLower.includes('inca')) {
+    return [
+      {
+        id: 1,
+        title: 'Arrival in Cusco & Acclimatization',
+        desc: 'Meet our local historian guide at Cusco airport. Rest and acclimatize with warm coca tea, followed by a light historical walking tour.',
+        accommodation: 'Belmond Hotel Monasterio',
+        location: 'Cusco',
+        transport: ['Private Van'],
+      },
+      {
+        id: 2,
+        title: 'Inca Trail Trek & Sacred Valley',
+        desc: 'Begin the journey along the Urubamba River. Explore the ruins of Patallacta and trek through lush Andean valleys.',
+        accommodation: 'Luxury Glamping Camp',
+        location: 'Sacred Valley',
+        transport: ['Trek', 'Private 4x4'],
+      },
+      {
+        id: 3,
+        title: 'Machu Picchu Discovery',
+        desc: 'Enter through the Sun Gate (Intipunku) for your first panoramic view of Machu Picchu. Enjoy a fully guided private tour of the citadel.',
+        accommodation: 'Sanctuary Lodge by Belmond',
+        location: 'Machu Picchu',
+        transport: ['Trek', 'Expedition Train'],
+      },
+    ];
+  }
+  
+  if (destLower.includes('zermatt') || destLower.includes('swiss') || destLower.includes('ch') || titleLower.includes('alpine')) {
+    return [
+      {
+        id: 1,
+        title: 'Zermatt Arrival & Alpine Spa',
+        desc: 'Arrive in car-free Zermatt via the scenic Glacier Express. Check into your mountain-facing suite and enjoy a premium Swiss herbal spa.',
+        accommodation: 'The Omnia Mountain Lodge',
+        location: 'Zermatt',
+        transport: ['Glacier Express Train'],
+      },
+      {
+        id: 2,
+        title: 'Matterhorn Glacier Paradise',
+        desc: 'Ascend Europe\'s highest cable car station. Explore the glacier palace and enjoy panoramic views of the French, Swiss, and Italian Alps.',
+        accommodation: 'The Omnia Mountain Lodge',
+        location: 'Matterhorn Peak',
+        transport: ['Cable Car'],
+      },
+      {
+        id: 3,
+        title: 'Gornergrat Cog Railway Tour',
+        desc: 'Ride the historic cogwheel railway up to Gornergrat for unmatched vistas. Followed by a luxury alpine cheese-fondue dinner.',
+        accommodation: 'Riffelalp Resort 2222m',
+        location: 'Gornergrat',
+        transport: ['Cogwheel Train'],
+      },
+    ];
+  }
+
+  if (destLower.includes('lisbon') || destLower.includes('portugal')) {
+    return [
+      {
+        id: 1,
+        title: 'Lisbon Arrival & Sunset Cruise',
+        desc: 'Check into your historic boutique hotel. In the evening, enjoy a private yacht sunset cruise along the Tagus River with Portuguese wine.',
+        accommodation: 'Bairro Alto Hotel',
+        location: 'Tagus River',
+        transport: ['Private Sedan', 'Yacht'],
+      },
+      {
+        id: 2,
+        title: 'Alfama Walk & Fado Evening',
+        desc: 'Stroll through the narrow labyrinthine streets of Alfama. Experience a deeply moving live Fado performance at an exclusive candlelit tavern.',
+        accommodation: 'Bairro Alto Hotel',
+        location: 'Alfama District',
+        transport: ['Vintage Tram'],
+      },
+      {
+        id: 3,
+        title: 'Sintra Palaces & Cabo da Roca',
+        desc: 'Explore the fairytale Pena Palace in Sintra, then drive to Cabo da Roca—the westernmost point of continental Europe.',
+        accommodation: 'Palácio de Seteais',
+        location: 'Sintra Palace',
+        transport: ['Private Cabriolet'],
+      },
+    ];
+  }
+
+  if (destLower.includes('istanbul') || destLower.includes('turkey')) {
+    return [
+      {
+        id: 1,
+        title: 'Historic Peninsula Guided Tour',
+        desc: 'Visit the majestic Hagia Sophia and the Blue Mosque with an expert art historian. Explore the treasures of Topkapi Palace.',
+        accommodation: 'Four Seasons Sultanahmet',
+        location: 'Sultanahmet',
+        transport: ['Private Vehicle'],
+      },
+      {
+        id: 2,
+        title: 'Grand Bazaar & Bosphorus Yacht',
+        desc: 'Navigate the colorful corridors of the Grand Bazaar with a personal shopper. Later, enjoy a private luxury yacht charter on the Bosphorus.',
+        accommodation: 'Four Seasons Sultanahmet',
+        location: 'Bosphorus Strait',
+        transport: ['Yacht'],
+      },
+    ];
+  }
+
+  if (destLower.includes('london') || destLower.includes('uk')) {
+    return [
+      {
+        id: 1,
+        title: 'Westminster Landmarks & Afternoon Tea',
+        desc: 'See Big Ben and Westminster Abbey. In the afternoon, enjoy an award-winning royal high tea experience at The Ritz.',
+        accommodation: 'The Savoy London',
+        location: 'Westminster',
+        transport: ['Black Cab'],
+      },
+      {
+        id: 2,
+        title: 'Tower of London & Bateaux Cruise',
+        desc: 'View the Crown Jewels before opening hours. Conclude with a gourmet dinner cruise on the River Thames.',
+        accommodation: 'The Savoy London',
+        location: 'River Thames',
+        transport: ['River Boat'],
+      },
+    ];
+  }
+
+  return [
+    {
+      id: 1,
+      title: 'Arrival & Riverside Sunset Glamping',
+      desc: 'Welcome to Hunza Valley. Tour briefing followed by an evening sunset walk by the Hunza River and luxury glamping.',
+      accommodation: 'Luxus Grand Hotel / Boutique Glamping',
+      location: 'Hunza Valley',
+      transport: ['Private 4x4 Land Cruiser'],
+    },
+    {
+      id: 2,
+      title: 'Historic Forts & Attabad Lake',
+      desc: 'Explore the ancient Baltit and Altit Forts, learning about local history. Later, take a private boat tour on the turquoise waters of Attabad Lake.',
+      accommodation: 'Attabad Lake Waterfront Resort',
+      location: 'Attabad Lake',
+      transport: ['Private 4x4 Land Cruiser', 'Boat'],
+    },
+    {
+      id: 3,
+      title: 'Passu Cones & Suspension Bridge',
+      desc: 'Drive through the scenic Passu Cones, stopping for photographs. Brave the crossing of the hanging Hussaini Suspension Bridge.',
+      accommodation: 'Luxus Grand Hotel',
+      location: 'Passu Cones',
+      transport: ['Private 4x4 Land Cruiser'],
+    },
+  ];
+};
+
 export default function PackageDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const pkg = route.params?.package || {};
   const [wishlisted, setWishlisted] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedDayId, setSelectedDayId] = useState(1);
+
+  const scrollRef = React.useRef(null);
+  const dayRefs = React.useRef({});
+
+  const daysData = getPackageDays(pkg);
+
+  const onScroll = (event) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    const index = Math.round(event.nativeEvent.contentOffset.x / slideSize);
+    setActiveIndex(index);
+  };
+
+  const handleSelectDay = (dayId, index) => {
+    setSelectedDayId(dayId);
+    const ref = dayRefs.current[dayId];
+    if (ref && scrollRef.current) {
+      ref.measureLayout(
+        scrollRef.current,
+        (x, y) => {
+          const scrollOffset = y - 120;
+          scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffset), animated: true });
+        },
+        () => {}
+      );
+    }
+  };
+
+  const selectedDayIndex = daysData.findIndex(d => d.id === selectedDayId);
 
   // Dynamic fallbacks to support custom user packages and match the exact HTML designs
   const image = pkg.img || pkg.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
+  const images = (pkg.imageUrls && pkg.imageUrls.length > 0) ? pkg.imageUrls : [image];
   const title = pkg.title || 'Autumn Splendor Expedition';
   const agencyName = pkg.agency || 'Odyssey Travels';
   const duration = pkg.duration || '7 Days';
@@ -23,14 +219,41 @@ export default function PackageDetailScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
         <View style={styles.hero}>
-          <Image source={{ uri: image }} style={styles.heroImage} />
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item }} style={styles.heroImageItem} resizeMode="cover" />
+            )}
+          />
           <LinearGradient
             colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.45)']}
             style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
           />
+
+          {/* Dots Indicator */}
+          {images.length > 1 && (
+            <View style={styles.pagination}>
+              {images.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    activeIndex === index ? styles.activeDot : styles.inactiveDot,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
           
           {/* Navigation Overlays */}
           <View style={[styles.heroNav, { paddingTop: insets.top > 0 ? insets.top : 20 }]}>
@@ -91,6 +314,161 @@ export default function PackageDetailScreen({ navigation, route }) {
             <Text style={styles.descriptionText}>{description}</Text>
           </View>
 
+          {/* Journey Route Map (Interactive Bento Card) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Journey Route Map</Text>
+            <View style={styles.mapCard}>
+              <View style={styles.mapHeader}>
+                <View style={styles.mapTitleRow}>
+                  <MaterialIcons name="explore" size={20} color="#52396f" />
+                  <Text style={styles.mapCardTitle}>Interactive Landmark Trace</Text>
+                </View>
+                <Text style={styles.mapSubTitle}>Tap landmarks to view daily schedules</Text>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.mapNodesScroll}
+              >
+                {daysData.map((day, idx) => {
+                  const isSelected = selectedDayId === day.id;
+                  return (
+                    <View key={day.id} style={styles.mapNodeWrapper}>
+                      {idx > 0 && (
+                        <View
+                          style={[
+                            styles.mapLine,
+                            idx <= selectedDayIndex ? styles.mapLineActive : styles.mapLineInactive,
+                          ]}
+                        />
+                      )}
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleSelectDay(day.id, idx)}
+                        style={styles.mapNodeTouch}
+                      >
+                        <View
+                          style={[
+                            styles.mapNodeCircle,
+                            isSelected && styles.mapNodeCircleActive,
+                          ]}
+                        >
+                          <MaterialIcons
+                            name={isSelected ? "place" : "location-on"}
+                            size={isSelected ? 18 : 14}
+                            color={isSelected ? '#ffffff' : '#52396f'}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.mapNodeText,
+                            isSelected && styles.mapNodeTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {day.location || `Day ${idx + 1}`}
+                        </Text>
+                        <Text style={styles.mapNodeDayLabel}>Day {idx + 1}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+
+          {/* Day-by-Day Itinerary Vertical Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Detailed Itinerary</Text>
+            <View style={styles.itineraryTimeline}>
+              {daysData.map((day, idx) => {
+                const isSelected = selectedDayId === day.id;
+                return (
+                  <View
+                    key={day.id}
+                    ref={(el) => (dayRefs.current[day.id] = el)}
+                    style={styles.itineraryDayWrapper}
+                  >
+                    {/* Vertical line indicator */}
+                    {idx < daysData.length - 1 && (
+                      <View style={styles.timelineVerticalLine} />
+                    )}
+
+                    {/* Timeline Node Icon/Dot */}
+                    <View style={[
+                      styles.timelineDot,
+                      isSelected && styles.timelineDotActive
+                    ]}>
+                      <Text style={[
+                        styles.timelineDotText,
+                        isSelected && styles.timelineDotTextActive
+                      ]}>{idx + 1}</Text>
+                    </View>
+
+                    {/* Bento Card */}
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setSelectedDayId(day.id)}
+                      style={[
+                        styles.itineraryCard,
+                        isSelected && styles.itineraryCardActive
+                      ]}
+                    >
+                      <Text style={styles.itineraryDayHeader}>DAY {idx + 1}</Text>
+                      <Text style={styles.itineraryDayTitle}>{day.title || `Day ${idx + 1}`}</Text>
+                      <Text style={styles.itineraryDayDesc}>{day.desc}</Text>
+
+                      {/* Day Metadata (Accommodation / Location) */}
+                      <View style={styles.itineraryMetaContainer}>
+                        {day.accommodation ? (
+                          <View style={styles.itineraryMetaChip}>
+                            <MaterialIcons name="hotel" size={14} color="#52396f" />
+                            <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
+                              {day.accommodation}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {day.location ? (
+                          <View style={styles.itineraryMetaChip}>
+                            <MaterialIcons name="place" size={14} color="#52396f" />
+                            <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
+                              {day.location}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {day.transport && day.transport.length > 0 ? (
+                        <View style={styles.itineraryTransportRow}>
+                          <Text style={styles.itineraryTransportTitle}>Transport:</Text>
+                          <View style={styles.itineraryTransportChips}>
+                            {day.transport.map((trsp, tIdx) => (
+                              <View key={tIdx} style={styles.transportMiniChip}>
+                               <MaterialIcons
+                                  name={
+                                    trsp.toLowerCase().includes('flight') ? 'flight' :
+                                    trsp.toLowerCase().includes('yacht') || trsp.toLowerCase().includes('boat') ? 'directions-boat' :
+                                    trsp.toLowerCase().includes('train') ? 'train' : 'directions-car'
+                                  }
+                                  size={12}
+                                  color="#967BB6"
+                                />
+                                <Text style={styles.transportMiniLabel}>{trsp}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
           {/* Inclusions */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>What's Included</Text>
@@ -145,7 +523,29 @@ export default function PackageDetailScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   hero: { height: height * 0.45, position: 'relative' },
-  heroImage: { width: '100%', height: '100%', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+  heroImageItem: { width: width, height: '100%', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+  pagination: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDot: {
+    width: 20,
+    backgroundColor: '#ffffff',
+  },
+  inactiveDot: {
+    width: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+  },
   heroNav: {
     position: 'absolute',
     left: 20,
@@ -336,5 +736,240 @@ const styles = StyleSheet.create({
     fontFamily: 'Epilogue_600SemiBold',
     fontSize: 18,
     color: '#ffffff',
+  },
+
+  // Journey Map Bento Card
+  mapCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#edeeef',
+  },
+  mapHeader: {
+    marginBottom: 20,
+  },
+  mapTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  mapCardTitle: {
+    fontFamily: 'Epilogue_600SemiBold',
+    fontSize: 16,
+    color: '#191c1d',
+  },
+  mapSubTitle: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 12,
+    color: '#595c5d',
+    paddingLeft: 28,
+  },
+  mapNodesScroll: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  mapNodeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mapLine: {
+    height: 3,
+    width: 50,
+    marginTop: -28, // Offset to align with center of circle
+  },
+  mapLineActive: {
+    backgroundColor: '#967BB6',
+  },
+  mapLineInactive: {
+    backgroundColor: 'rgba(82, 57, 111, 0.1)',
+  },
+  mapNodeTouch: {
+    alignItems: 'center',
+    width: 110,
+  },
+  mapNodeCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(82, 57, 111, 0.1)',
+  },
+  mapNodeCircleActive: {
+    backgroundColor: '#967BB6',
+    borderColor: '#E8E1F0',
+    shadowColor: '#967BB6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  mapNodeText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#595c5d',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  mapNodeTextActive: {
+    color: '#52396f',
+    fontFamily: 'Manrope_700Bold',
+  },
+  mapNodeDayLabel: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 10,
+    color: '#a0a2a3',
+    marginTop: 2,
+  },
+
+  // Detailed Itinerary Timeline
+  itineraryTimeline: {
+    position: 'relative',
+    paddingLeft: 12,
+    marginTop: 8,
+  },
+  timelineVerticalLine: {
+    position: 'absolute',
+    left: 20,
+    top: 36,
+    bottom: -20,
+    width: 2,
+    backgroundColor: 'rgba(82, 57, 111, 0.12)',
+  },
+  timelineDot: {
+    position: 'absolute',
+    left: 4,
+    top: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(82, 57, 111, 0.1)',
+  },
+  timelineDotActive: {
+    backgroundColor: '#967BB6',
+    borderColor: '#E8E1F0',
+  },
+  timelineDotText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: '#595c5d',
+  },
+  timelineDotTextActive: {
+    color: '#ffffff',
+  },
+  itineraryDayWrapper: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    paddingLeft: 36,
+    position: 'relative',
+  },
+  itineraryCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#edeeef',
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  itineraryCardActive: {
+    borderColor: '#967BB6',
+    borderWidth: 1.5,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    backgroundColor: 'rgba(150, 123, 182, 0.02)',
+  },
+  itineraryDayHeader: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 11,
+    color: '#967BB6',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  itineraryDayTitle: {
+    fontFamily: 'Epilogue_600SemiBold',
+    fontSize: 18,
+    color: '#191c1d',
+    marginBottom: 8,
+  },
+  itineraryDayDesc: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 14,
+    color: '#4a454e',
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  itineraryMetaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  itineraryMetaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  itineraryMetaLabel: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+    color: '#52396f',
+    maxWidth: 150,
+  },
+  itineraryTransportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f5',
+    paddingTop: 10,
+  },
+  itineraryTransportTitle: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#595c5d',
+  },
+  itineraryTransportChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  transportMiniChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(150, 123, 182, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  transportMiniLabel: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 11,
+    color: '#52396f',
   },
 });

@@ -9,11 +9,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 
 // Stitch: tropical beach hero image
-const BG_URI = 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4RFyDGeB1LbP1eU-97orLZKeu56yWVWLzLJ1o7658-l-_2cxdG_uj1efZrR6auos6hYTPJmJSHtvZBtzQga5TZt65Nov15MJjizMIcUN9heP-pqlC6ae0aIoPTxDwCF9TX9Rvb-jklkMcBKeVe_XdtJKQWUC9wWkNIlRNsw94VhIXkC9aRKnmCSdAo6-08KvZeE9r-M5s3NCqjN6aimvQk9GPW5IqguBEgtwRsCWbjpz55bhKi1vCSbOa3X3pvT6liUd4DALYX2ne';
+const LOGIN_BG = require('../../../assets/login_bg.png');
 
 // Stitch exact colors
 const C = {
-  primary:  '#0149E6',   // Stitch login primary (blue)
+  primary:  '#967BB6',   // Lavender primary
   lavender: '#967BB6',   // Stitch CTA gradient start
   lavenderLight: '#B19CD9', // Stitch CTA gradient end
   surface:  '#F5F6F7',
@@ -45,7 +45,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <ImageBackground source={{ uri: BG_URI }} style={s.bg} resizeMode="cover">
+    <ImageBackground source={LOGIN_BG} style={s.bg} resizeMode="cover">
       {/* Ambient Overlay for Readability — bg-surface/20 backdrop-blur */}
       <View style={s.overlay} />
 
@@ -254,7 +254,7 @@ const s = StyleSheet.create({
     elevation: 8,
   },
   cardHd: { alignItems: 'center', gap: 8, marginBottom: 4 },
-  cardTitle: { fontFamily: 'Epilogue_600SemiBold', fontSize: 24, color: C.onSurf, textAlign: 'center' },
+  cardTitle: { fontFamily: 'Epilogue_700Bold', fontSize: 26, color: C.onSurf, textAlign: 'center' },
   cardDesc: { fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurfVar, textAlign: 'center', lineHeight: 20, paddingHorizontal: 4 },
 
   field: { gap: 8 },
@@ -280,7 +280,7 @@ const s = StyleSheet.create({
   },
   checkboxOn: { backgroundColor: C.primary, borderColor: C.primary },
   rememberTxt: { fontFamily: 'Manrope_400Regular', fontSize: 12, color: C.onSurfVar },
-  forgotTxt:   { fontFamily: 'Manrope_500Medium', fontSize: 12, color: C.primary },
+  forgotTxt:   { fontFamily: 'Manrope_700Bold', fontSize: 12, color: C.primary },
 
   errBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.errBg, borderRadius: 12, padding: 12 },
   errTxt: { fontFamily: 'Manrope_400Regular', fontSize: 13, color: C.error, flex: 1 },
@@ -296,7 +296,7 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   ctaInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ctaTxt: { fontFamily: 'Epilogue_600SemiBold', fontSize: 16, color: '#fff' },
+  ctaTxt: { fontFamily: 'Epilogue_700Bold', fontSize: 16, color: '#fff' },
 
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
   divLine: { flex: 1, height: 1, backgroundColor: 'rgba(171,173,174,0.15)' },
