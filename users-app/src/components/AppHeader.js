@@ -33,28 +33,20 @@ export default function AppHeader({ title, showBack, navigation }) {
       </View>
 
       <View style={styles.center}>
-        {title ? (
-          <Text style={[styles.title, { color: themeColor }]}>{title}</Text>
-        ) : (
-          <Text style={[styles.logo, { color: themeColor }]}>DESTIN8</Text>
-        )}
+        <Text style={[styles.logo, { color: themeColor }]}>DESTIN8</Text>
       </View>
 
       <View style={styles.right}>
-        {!showBack ? (
-          <TouchableOpacity
-            style={styles.avatarWrap}
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBVKbrrA85UnvoxERTRwyMhFqxHqGaEy7BuyonQ6AXv5I3-75TJR2zzpqIWwdNxTaDhQFsw4GcPjhEEAnnMCXXtU2vs7sDgJ6eA1ZCJQO9oAp1-seai-wjjpNfGyYhjQ8dtFtSZoZEKO8C1V1hFrhlgcqQ_FErAmxPCSEoc1l7KaMf6T0fh-_9RDqm5P0RElb818xuMlUTqkX2wDEpGwYFradawmni7DQDihv9vbZhjZcANE1NH2Qfqg8QKTyEIRfdk_-fvIIg7WNRe' }}
-              style={styles.avatar}
-            />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        <TouchableOpacity
+          style={styles.avatarWrap}
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBVKbrrA85UnvoxERTRwyMhFqxHqGaEy7BuyonQ6AXv5I3-75TJR2zzpqIWwdNxTaDhQFsw4GcPjhEEAnnMCXXtU2vs7sDgJ6eA1ZCJQO9oAp1-seai-wjjpNfGyYhjQ8dtFtSZoZEKO8C1V1hFrhlgcqQ_FErAmxPCSEoc1l7KaMf6T0fh-_9RDqm5P0RElb818xuMlUTqkX2wDEpGwYFradawmni7DQDihv9vbZhjZcANE1NH2Qfqg8QKTyEIRfdk_-fvIIg7WNRe' }}
+            style={styles.avatar}
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );

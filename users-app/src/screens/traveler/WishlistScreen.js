@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, TextInput, Dimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mockPackages, mockWishlist } from '../../store/mockData';
@@ -10,9 +10,15 @@ const { width } = Dimensions.get('window');
 
 export default function WishlistScreen({ navigation }) {
   const [wishlist, setWishlist] = useState(mockWishlist);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Filter packages based on wishlist state
   const saved = mockPackages.filter(p => wishlist.includes(p.id));
+
+  const filteredSaved = saved.filter(pkg => 
+    pkg.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    pkg.destination.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const toggleWishlist = (id) => {
     setWishlist(prev => {
@@ -45,25 +51,43 @@ export default function WishlistScreen({ navigation }) {
           <Text style={styles.subtitle}>Your saved travel dreams</Text>
         </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchBar}>
+          <MaterialIcons name="search" size={22} color="#7b757f" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search saved packages..."
+            placeholderTextColor="rgba(123, 117, 127, 0.6)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
         {/* Wishlist Content */}
-        {saved.length === 0 ? (
+        {filteredSaved.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialIcons name="favorite-border" size={64} color="rgba(82, 57, 111, 0.2)" />
-            <Text style={styles.emptyTitle}>No saved trips yet</Text>
-            <Text style={styles.emptyDesc}>
-              Tap the heart icon on any package to save it here.
+            <Text style={styles.emptyTitle}>
+              {searchQuery ? "No matches found" : "No saved trips yet"}
             </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Explore')}
-              style={styles.exploreBtn}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.exploreBtnText}>Explore Packages</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyDesc}>
+              {searchQuery 
+                ? "Try searching for a different destination or package title." 
+                : "Tap the heart icon on any package to save it here."}
+            </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Explore')}
+                style={styles.exploreBtn}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.exploreBtnText}>Explore Packages</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.list}>
-            {saved.map(pkg => (
+            {filteredSaved.map(pkg => (
               <TouchableOpacity
                 key={pkg.id}
                 style={styles.card}
@@ -368,5 +392,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  // Search Bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    marginHorizontal: 24,
+    marginBottom: 24,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
+  },
+  searchIcon: {
+    marginRight: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 15,
+    color: '#191c1d',
+    padding: 0,
   },
 });
