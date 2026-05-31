@@ -34,7 +34,7 @@ export default function AppHeader({ title, showBack, navigation }) {
 
       <View style={styles.center}>
         {title ? (
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: themeColor }]}>{title}</Text>
         ) : (
           <Text style={[styles.logo, { color: themeColor }]}>DESTIN8</Text>
         )}
