@@ -241,25 +241,19 @@ const styles = StyleSheet.create({
 
   // Cards List
   list: {
-    gap: 16,
+    gap: 0,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderRadius: 20,
-    padding: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    shadowColor: '#2C2F30',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(150,123,182,0.10)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 123, 182, 0.15)',
   },
   cardUnread: {
-    borderLeftWidth: 4,
+    backgroundColor: 'rgba(150, 123, 182, 0.05)',
   },
   avatar: {
     width: 48,

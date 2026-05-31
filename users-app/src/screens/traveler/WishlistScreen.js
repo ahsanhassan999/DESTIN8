@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   cardPrice: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 14,
-    color: '#B29CCF', // lavender-light
+    color: '#52396f',
   },
   removeBtn: {
     padding: 8,
