@@ -76,7 +76,7 @@ export default function ChatListScreen({ navigation }) {
         <View style={styles.searchWrap}>
           <MaterialIcons name="search" size={22} color="#7b757f" style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { backgroundColor: 'transparent' }]}
             placeholder="Search conversations..."
             placeholderTextColor="rgba(123, 117, 127, 0.6)"
             value={searchQuery}
@@ -105,14 +105,14 @@ export default function ChatListScreen({ navigation }) {
               >
                 {/* Avatar */}
                 <View style={[styles.avatar, { backgroundColor: primaryBgLight }]}>
-                  <Text style={[styles.avatarText, { color: primaryColor }]}>{displayInitials}</Text>
+                  <Text style={[styles.avatarText, { color: primaryColor, backgroundColor: 'transparent' }]}>{displayInitials}</Text>
                 </View>
 
                 {/* Body */}
-                <View style={styles.cardBody}>
-                  <View style={styles.cardHeader}>
+                <View style={[styles.cardBody, { backgroundColor: 'transparent' }]}>
+                  <View style={[styles.cardHeader, { backgroundColor: 'transparent' }]}>
                     <Text
-                      style={[styles.cardName, hasUnread && styles.cardNameUnread]}
+                      style={[styles.cardName, hasUnread && styles.cardNameUnread, { backgroundColor: 'transparent' }]}
                       numberOfLines={1}
                     >
                       {displayName}
@@ -121,6 +121,7 @@ export default function ChatListScreen({ navigation }) {
                       style={[
                         styles.cardTime,
                         hasUnread ? { color: primaryColor } : styles.cardTimeRead,
+                        { backgroundColor: 'transparent' }
                       ]}
                     >
                       {conv.time}
@@ -129,16 +130,16 @@ export default function ChatListScreen({ navigation }) {
 
                   {/* Subtitle tag row (only visible on agency side since traveler title IS the package name) */}
                   {isAgency && (
-                    <View style={styles.tagRow}>
-                      <View style={styles.tagPill}>
-                        <Text style={styles.tagText}>{conv.package}</Text>
+                    <View style={[styles.tagRow, { backgroundColor: 'transparent' }]}>
+                      <View style={[styles.tagPill, { backgroundColor: '#e7e8e9' }]}>
+                        <Text style={[styles.tagText, { backgroundColor: 'transparent' }]}>{conv.package}</Text>
                       </View>
                     </View>
                   )}
 
                   {/* Last message snippet */}
                   <Text
-                    style={[styles.cardMsg, hasUnread && styles.cardMsgUnread]}
+                    style={[styles.cardMsg, hasUnread && styles.cardMsgUnread, { backgroundColor: 'transparent' }]}
                     numberOfLines={1}
                   >
                     {conv.lastMsg}

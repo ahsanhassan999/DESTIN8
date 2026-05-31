@@ -55,7 +55,7 @@ export default function WishlistScreen({ navigation }) {
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={22} color="#7b757f" style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { backgroundColor: 'transparent' }]}
             placeholder="Search saved packages..."
             placeholderTextColor="rgba(123, 117, 127, 0.6)"
             value={searchQuery}
@@ -96,14 +96,14 @@ export default function WishlistScreen({ navigation }) {
               >
                 <Image source={{ uri: pkg.image }} style={styles.cardImg} />
                 
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
+                <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
+                  <Text style={[styles.cardTitle, { backgroundColor: 'transparent' }]} numberOfLines={1}>
                     {pkg.title}
                   </Text>
-                  <Text style={styles.cardMeta} numberOfLines={1}>
+                  <Text style={[styles.cardMeta, { backgroundColor: 'transparent' }]} numberOfLines={1}>
                     {pkg.destination} · {pkg.duration} Days
                   </Text>
-                  <Text style={styles.cardPrice}>
+                  <Text style={[styles.cardPrice, { backgroundColor: 'transparent' }]}>
                     ${pkg.price ? (pkg.price / 100).toFixed(0) : '1,250'}
                   </Text>
                 </View>
