@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Image, Dimensions, ImageBackground
+  ScrollView, Image, Dimensions, ImageBackground, Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import AppHeader from '../../components/AppHeader';
 import { LinearGradient } from 'expo-linear-gradient';
+import { mockPackages } from '../../store/mockData';
 
 const { width } = Dimensions.get('window');
 const CARD_W = width * 0.85;
@@ -71,6 +72,43 @@ export default function TravelerDashboardScreen({ navigation }) {
   const [compareList, setCompareList] = useState(new Set());
   const { user } = useAuth();
 
+  // Combine all images from different sources to show behind "Where to next?"
+  const packageImages = React.useMemo(() => {
+    const list = [
+      ...FEATURED.map(p => p.img),
+      ...ESCAPES.map(p => p.img),
+      ...mockPackages.map(p => p.image || p.img)
+    ].filter(Boolean);
+    
+    // Add default fallback if list is empty
+    if (list.length === 0) {
+      list.push('https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15');
+    }
+    return list;
+  }, []);
+
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [nextImgIndex, setNextImgIndex] = useState(1);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (packageImages.length <= 1) return;
+
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentImgIndex(nextImgIndex);
+        fadeAnim.setValue(0);
+        setNextImgIndex((nextImgIndex + 1) % packageImages.length);
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [nextImgIndex, packageImages.length]);
+
   const toggleCompare = (id) => {
     setCompareList(prev => {
       const next = new Set(prev);
@@ -87,15 +125,28 @@ export default function TravelerDashboardScreen({ navigation }) {
     <View style={styles.container}>
       <AppHeader navigation={navigation} />
 
+      {/* Asymmetrical Background Orbs */}
+      <View style={styles.bgOrb1} pointerEvents="none" />
+      <View style={styles.bgOrb2} pointerEvents="none" />
+      <View style={styles.bgOrb3} pointerEvents="none" />
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
         <View style={styles.hero}>
+          {/* Base current image */}
           <Image
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15' }}
+            source={{ uri: packageImages[currentImgIndex] }}
             style={StyleSheet.absoluteFillObject}
           />
+          {/* Overlaying next image that fades in */}
+          {packageImages.length > 1 && (
+            <Animated.Image
+              source={{ uri: packageImages[nextImgIndex] }}
+              style={[StyleSheet.absoluteFillObject, { opacity: fadeAnim }]}
+            />
+          )}
           <LinearGradient
-            colors={['transparent', 'rgba(245,246,247,0.4)', '#f5f6f7']}
+            colors={['transparent', 'rgba(240,238,245,0.4)', '#F0EEF5']}
             style={StyleSheet.absoluteFillObject}
           />
           <View style={styles.heroContent}>
@@ -138,7 +189,7 @@ export default function TravelerDashboardScreen({ navigation }) {
                   <MaterialIcons
                     name={cat.icon}
                     size={24}
-                    color={isActive ? '#0149e6' : '#595c5d'}
+                    color={isActive ? '#52396f' : '#595c5d'}
                   />
                 </View>
                 <Text style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}>
@@ -190,7 +241,7 @@ export default function TravelerDashboardScreen({ navigation }) {
                     activeOpacity={0.85}
                   >
                     <View style={styles.checkboxRound}>
-                      {isCompared && <MaterialIcons name="check" size={14} color="#0149e6" />}
+                      {isCompared && <MaterialIcons name="check" size={14} color="#52396f" />}
                     </View>
                   </TouchableOpacity>
 
@@ -198,7 +249,7 @@ export default function TravelerDashboardScreen({ navigation }) {
                   <View style={styles.featuredDetails}>
                     <View style={styles.badgeRow}>
                       <View style={styles.verifiedBadge}>
-                        <MaterialIcons name="verified-user" size={12} color="#0149e6" style={{ marginRight: 2 }} />
+                        <MaterialIcons name="verified-user" size={12} color="#52396f" style={{ marginRight: 2 }} />
                         <Text style={styles.verifiedText}>Verified Agency</Text>
                       </View>
                       <View style={styles.ratingRow}>
@@ -250,7 +301,7 @@ export default function TravelerDashboardScreen({ navigation }) {
             style={styles.compareFab}
             activeOpacity={0.85}
           >
-            <MaterialIcons name="compare-arrows" size={20} color="#0149e6" />
+            <MaterialIcons name="compare-arrows" size={20} color="#52396f" />
             <Text style={styles.compareFabText}>Compare ({compareList.size})</Text>
           </TouchableOpacity>
         </View>
@@ -260,7 +311,40 @@ export default function TravelerDashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f6f7' },
+  container: { flex: 1, backgroundColor: '#F0EEF5' },
+  bgOrb1: {
+    position: 'absolute',
+    top: 350,
+    left: -85,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#C9B8E8',
+    opacity: 0.35,
+    zIndex: 0,
+  },
+  bgOrb2: {
+    position: 'absolute',
+    bottom: 250,
+    right: -95,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: '#b8baff',
+    opacity: 0.3,
+    zIndex: 0,
+  },
+  bgOrb3: {
+    position: 'absolute',
+    top: '65%',
+    left: '20%',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#e0d5f7',
+    opacity: 0.25,
+    zIndex: 0,
+  },
   scroll: { paddingTop: 0 },
 
   // Hero Section
@@ -287,7 +371,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -297,6 +381,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 48,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.12)',
   },
   searchInput: {
     flex: 1,
@@ -314,7 +400,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2c2f30',
@@ -322,9 +408,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 24,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
   },
   categoryIconWrapActive: {
-    backgroundColor: '#cecdff', // secondary-container (#cecdff) which matches primary-container in styling
+    backgroundColor: '#cecdff',
+    borderColor: '#b8baff',
   },
   categoryLabel: {
     fontFamily: 'Manrope_700Bold',
@@ -334,7 +423,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   categoryLabelActive: {
-    color: '#0149e6',
+    color: '#52396f',
   },
 
   // Sections
@@ -355,7 +444,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 11,
-    color: '#0149e6',
+    color: '#52396f',
     letterSpacing: 0.5,
   },
 
@@ -367,13 +456,15 @@ const styles = StyleSheet.create({
     height: CARD_W * 1.05,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     position: 'relative',
     shadowColor: '#2c2f30',
     shadowOffset: { width: 0, height: 32 },
     shadowOpacity: 0.06,
     shadowRadius: 48,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
   },
   featuredImg: {
     width: '100%',
@@ -425,7 +516,7 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 10,
-    color: '#0149e6',
+    color: '#52396f',
     textTransform: 'uppercase',
   },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
@@ -449,7 +540,7 @@ const styles = StyleSheet.create({
   cardPrice: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 20,
-    color: '#0149e6',
+    color: '#52396f',
   },
   perPerson: {
     fontFamily: 'Manrope_400Regular',
@@ -463,16 +554,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     borderRadius: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
     gap: 16,
     shadowColor: '#2c2f30',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.04,
     shadowRadius: 24,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
   },
   escapeCardGrey: {
-    backgroundColor: '#eff1f2',
+    backgroundColor: 'rgba(239, 241, 242, 0.88)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -495,7 +588,7 @@ const styles = StyleSheet.create({
   escapePrice: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 16,
-    color: '#0149e6',
+    color: '#52396f',
   },
 
   // Compare FAB
@@ -524,6 +617,6 @@ const styles = StyleSheet.create({
   compareFabText: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 14,
-    color: '#0149e6',
+    color: '#52396f',
   },
 });
