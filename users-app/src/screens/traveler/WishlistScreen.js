@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, TextInput, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mockPackages, mockWishlist } from '../../store/mockData';
@@ -10,20 +10,28 @@ const { width } = Dimensions.get('window');
 
 export default function WishlistScreen({ navigation }) {
   const [wishlist, setWishlist] = useState(mockWishlist);
-  const [searchQuery, setSearchQuery] = useState('');
 
+  // Filter packages based on wishlist state
   const saved = mockPackages.filter(p => wishlist.includes(p.id));
-  
-  const filteredSaved = saved.filter(pkg => 
-    pkg.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    pkg.destination.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
-  const remove = (id) => setWishlist(w => w.filter(x => x !== id));
+  const toggleWishlist = (id) => {
+    setWishlist(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(x => x !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
 
   return (
     <View style={styles.container}>
       <AppHeader title="My Wishlist" navigation={navigation} />
+
+      {/* Asymmetrical Background Orbs */}
+      <View style={styles.bgOrb1} pointerEvents="none" />
+      <View style={styles.bgOrb2} pointerEvents="none" />
+      <View style={styles.bgOrb3} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Page Title Section */}
@@ -37,43 +45,25 @@ export default function WishlistScreen({ navigation }) {
           <Text style={styles.subtitle}>Your saved travel dreams</Text>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#7b757f" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search saved packages..."
-            placeholderTextColor="rgba(123, 117, 127, 0.6)"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
         {/* Wishlist Content */}
-        {filteredSaved.length === 0 ? (
+        {saved.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialIcons name="favorite-border" size={64} color="rgba(82, 57, 111, 0.2)" />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? "No matches found" : "No saved trips yet"}
-            </Text>
+            <Text style={styles.emptyTitle}>No saved trips yet</Text>
             <Text style={styles.emptyDesc}>
-              {searchQuery 
-                ? "Try searching for a different destination or package title." 
-                : "Tap the heart icon on any package to save it here."}
+              Tap the heart icon on any package to save it here.
             </Text>
-            {!searchQuery && (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Explore')}
-                style={styles.exploreBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.exploreBtnText}>Explore Packages</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Explore')}
+              style={styles.exploreBtn}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.exploreBtnText}>Explore Packages</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.list}>
-            {filteredSaved.map(pkg => (
+            {saved.map(pkg => (
               <TouchableOpacity
                 key={pkg.id}
                 style={styles.card}
@@ -87,19 +77,19 @@ export default function WishlistScreen({ navigation }) {
                     {pkg.title}
                   </Text>
                   <Text style={styles.cardMeta} numberOfLines={1}>
-                    {pkg.destination} • {pkg.duration} Days
+                    {pkg.destination} · {pkg.duration} Days
                   </Text>
                   <Text style={styles.cardPrice}>
-                    PKR {(pkg.price / 1000).toFixed(0)}k
+                    ${pkg.price ? (pkg.price / 100).toFixed(0) : '1,250'}
                   </Text>
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => remove(pkg.id)}
+                  onPress={() => toggleWishlist(pkg.id)}
                   style={styles.removeBtn}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="favorite" size={22} color="#ba1a1a" />
+                  <MaterialIcons name="favorite" size={24} color="#ba1a1a" />
                 </TouchableOpacity>
               </TouchableOpacity>
             ))}
@@ -115,7 +105,7 @@ export default function WishlistScreen({ navigation }) {
               style={StyleSheet.absoluteFillObject}
             />
             <LinearGradient
-              colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']}
+              colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.85)']}
               style={StyleSheet.absoluteFillObject}
               start={{ x: 0, y: 0.2 }}
               end={{ x: 0, y: 1 }}
@@ -136,19 +126,65 @@ export default function WishlistScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 140 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f6f7' },
-  scroll: { paddingTop: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F0EEF5',
+  },
+  // Orb backgrounds
+  bgOrb1: {
+    position: 'absolute',
+    top: 150,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#C9B8E8',
+    opacity: 0.35,
+    zIndex: 0,
+  },
+  bgOrb2: {
+    position: 'absolute',
+    bottom: 200,
+    right: -80,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: '#b8baff',
+    opacity: 0.3,
+    zIndex: 0,
+  },
+  bgOrb3: {
+    position: 'absolute',
+    top: '55%',
+    left: '25%',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#e0d5f7',
+    opacity: 0.25,
+    zIndex: 0,
+  },
+  scroll: {
+    paddingTop: 24,
+  },
 
   // Page Title
-  headerSection: { paddingHorizontal: 24, marginBottom: 24 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerSection: {
+    paddingHorizontal: 24,
+    marginBottom: 32,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   title: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 32,
@@ -172,33 +208,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Search Bar
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-    shadowColor: '#2c2f30',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Manrope_500Medium',
-    fontSize: 15,
-    color: '#191c1d',
-    padding: 0,
-  },
-
   // Empty State
-  emptyState: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 16 },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
   emptyTitle: {
     fontFamily: 'Epilogue_600SemiBold',
     fontSize: 18,
@@ -224,26 +240,35 @@ const styles = StyleSheet.create({
   },
 
   // List of Saved Items
-  list: { paddingHorizontal: 24, gap: 16 },
+  list: {
+    paddingHorizontal: 24,
+    gap: 16,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 20,
     padding: 16,
     gap: 16,
-    shadowColor: '#2c2f30',
+    shadowColor: '#2C2F30',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
     shadowRadius: 24,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.10)',
   },
   cardImg: {
     width: 80,
     height: 80,
-    borderRadius: 12,
+    borderRadius: 16,
   },
-  cardContent: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  cardContent: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
   cardTitle: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 16,
@@ -251,31 +276,42 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardMeta: {
-    fontFamily: 'Manrope_400Regular',
+    fontFamily: 'Manrope_500Medium',
     fontSize: 13,
     color: '#4a454e',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cardPrice: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 14,
     color: '#B29CCF', // lavender-light
   },
-  removeBtn: { padding: 4 },
+  removeBtn: {
+    padding: 8,
+  },
 
   // Suggestion Section
-  suggestionSection: { marginTop: 40, paddingHorizontal: 24 },
+  suggestionSection: {
+    marginTop: 40,
+    paddingHorizontal: 24,
+  },
   suggestionTitle: {
-    fontFamily: 'Epilogue_600SemiBold',
-    fontSize: 20,
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 24,
     color: '#191c1d',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   suggestionCard: {
-    height: width * 0.95,
-    borderRadius: 16,
+    width: '100%',
+    aspectRatio: 4 / 5,
+    borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#2C2F30',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
+    shadowRadius: 32,
+    elevation: 4,
   },
   suggestionContent: {
     position: 'absolute',
@@ -287,10 +323,10 @@ const styles = StyleSheet.create({
   },
   suggestionBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 9999,
   },
@@ -299,11 +335,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#ffffff',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   suggestionCardTitle: {
     fontFamily: 'Epilogue_700Bold',
-    fontSize: 24,
+    fontSize: 28,
     color: '#ffffff',
   },
   suggestionCardSub: {
@@ -317,10 +353,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#52396f',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderRadius: 9999,
-    gap: 6,
+    gap: 8,
     shadowColor: 'rgba(106, 81, 136, 0.25)',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 1,
@@ -329,7 +365,7 @@ const styles = StyleSheet.create({
   },
   viewDestText: {
     fontFamily: 'Manrope_700Bold',
-    fontSize: 13,
+    fontSize: 14,
     color: '#ffffff',
     letterSpacing: 0.5,
   },
