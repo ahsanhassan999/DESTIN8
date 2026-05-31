@@ -8,8 +8,7 @@ export default function AppHeader({ title, showBack, navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
-  const isAgency = user?.role === 'agency';
-  const themeColor = isAgency ? '#967BB6' : '#52396F';
+  const themeColor = '#52396F';
 
   return (
     <View style={[
@@ -120,6 +119,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(150, 123, 182, 0.2)',
+    borderColor: 'rgba(82, 57, 111, 0.2)',
   },
 });
