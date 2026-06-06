@@ -281,11 +281,14 @@ async def pay_booking(
                 )
                 db.add(new_saved_card)
 
-    total_price = pkg.price * booking.num_travelers
+    # pkg.price is the agency's original price (stored without markup in DB)
+    # Traveler sees pkg.price * 1.10 (via API markup), so deposit_amount is also based on marked-up price
+    original_total = pkg.price * booking.num_travelers          # e.g. 25,000
+    traveler_total = original_total * 1.10                      # e.g. 27,500 (what traveler sees)
     deposit_percentage = pkg.deposit_percentage if pkg.deposit_percentage is not None else 50
-    amount_paid = total_price * (deposit_percentage / 100.0)
-    commission_deducted = amount_paid * 0.10
-    payout_amount = amount_paid - commission_deducted
+    amount_paid = traveler_total * (deposit_percentage / 100.0) # e.g. 50% → 13,750
+    commission_deducted = original_total * 0.10                 # 10% of ORIGINAL total → 2,500
+    payout_amount = amount_paid - commission_deducted           # 13,750 - 2,500 = 11,250
 
     txn_ref = f"TXN-{random.randint(100000, 999999)}"
     payout_ref = f"PAY-{random.randint(100000, 999999)}"

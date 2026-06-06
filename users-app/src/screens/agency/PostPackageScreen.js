@@ -610,9 +610,7 @@ export default function PostPackageScreen({ navigation, route }) {
     } catch (err) {
       setLoading(false);
       const errMsg = err?.message || 'Failed to submit package. Please try again.';
-      setSuccessMessage(errMsg);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      Alert.alert('Error', errMsg);
     }
   };
 
@@ -1277,39 +1275,49 @@ export default function PostPackageScreen({ navigation, route }) {
               </View>
 
               {/* Dynamic Billing Breakdown */}
-              {price.trim() !== '' && !isNaN(parseFloat(price)) && (
-                <View style={styles.breakdownCard}>
-                  <Text style={styles.breakdownTitle}>Booking Payment Breakdown</Text>
-                  
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Total Package Price</Text>
-                    <Text style={styles.breakdownVal}>{parseFloat(price).toLocaleString()} PKR</Text>
-                  </View>
-                  
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Deposit Required ({depositPercentage}%)</Text>
-                    <Text style={styles.breakdownVal}>
-                      {(parseFloat(price) * (depositPercentage / 100)).toLocaleString()} PKR
-                    </Text>
-                  </View>
+              {price.trim() !== '' && !isNaN(parseFloat(price)) && (() => {
+                const p = parseFloat(price);
+                const platformFee = p * 0.10;                          // 10% of total package price
+                const travelerPrice = p + platformFee;                 // what traveler sees: p * 1.10
+                const depositAmount = travelerPrice * (depositPercentage / 100); // deposit traveler pays
+                const agencyNet = depositAmount - platformFee;         // agency gets deposit minus fee
+                return (
+                  <View style={styles.breakdownCard}>
+                    <Text style={styles.breakdownTitle}>Booking Payment Breakdown</Text>
+                    
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Your Package Price</Text>
+                      <Text style={styles.breakdownVal}>{p.toLocaleString()} PKR</Text>
+                    </View>
 
-                  <View style={styles.breakdownDivider} />
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Platform Fee (10% of package)</Text>
+                      <Text style={[styles.breakdownVal, { color: '#B41340' }]}>{platformFee.toLocaleString()} PKR</Text>
+                    </View>
 
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Platform Fee (10% of Deposit)</Text>
-                    <Text style={styles.breakdownVal}>
-                      {(parseFloat(price) * (depositPercentage / 100) * 0.1).toLocaleString()} PKR
-                    </Text>
-                  </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Traveler Sees (with fee)</Text>
+                      <Text style={[styles.breakdownVal, { color: '#967BB6' }]}>{travelerPrice.toLocaleString()} PKR</Text>
+                    </View>
 
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Net Payout to Agency</Text>
-                    <Text style={[styles.breakdownVal, { color: C.success, fontWeight: '700' }]}>
-                      {(parseFloat(price) * (depositPercentage / 100) * 0.9).toLocaleString()} PKR
-                    </Text>
+                    <View style={styles.breakdownDivider} />
+
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Deposit Required ({depositPercentage}%)</Text>
+                      <Text style={styles.breakdownVal}>
+                        {depositAmount.toLocaleString(undefined, {maximumFractionDigits: 0})} PKR
+                      </Text>
+                    </View>
+
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Net Payout to Agency</Text>
+                      <Text style={[styles.breakdownVal, { color: C.success, fontWeight: '700' }]}>
+                        {agencyNet.toLocaleString(undefined, {maximumFractionDigits: 0})} PKR
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )}
+                );
+              })()}
             </View>
           </View>
 

@@ -207,6 +207,8 @@ export default function PackageDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const pkg = route.params?.package || {};
   const [fullPkg, setFullPkg] = useState(pkg);
+  // rawPrice always holds the numeric price returned from API (with 10% markup for traveler)
+  const [rawPrice, setRawPrice] = useState(typeof pkg.price === 'number' ? pkg.price : parseFloat(String(pkg.price || '0').replace(/[^0-9.]/g, '')) || 0);
   const { user } = useAuth();
   const isTraveler = user?.role === 'traveler';
   const [wishlisted, setWishlisted] = useState(false);
@@ -364,11 +366,15 @@ export default function PackageDetailScreen({ navigation, route }) {
       try {
         const data = await api.getPackage(pkg.id);
         if (active && data) {
+          // Store the numeric raw price separately so checkout math works
+          const numericPrice = typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '0').replace(/[^0-9.]/g, '')) || 0;
+          setRawPrice(numericPrice);
           setFullPkg(prev => ({
             ...prev,
             ...data,
             duration: `${data.duration_days} Days`,
-            price: data.price < 10000 ? `$${data.price}` : `PKR ${data.price.toLocaleString()}`,
+            // Keep price as a number so it can be used for calculations
+            price: numericPrice,
             img: data.cover_image || prev.img,
             agency: data.agency_name || prev.agency,
             inclusions: (() => { try { return JSON.parse(data.included_services || '[]'); } catch { return []; } })(),
@@ -453,7 +459,8 @@ export default function PackageDetailScreen({ navigation, route }) {
   const title = fullPkg.title || 'Autumn Splendor Expedition';
   const agencyName = fullPkg.agency || fullPkg.agency_name || 'Odyssey Travels';
   const duration = fullPkg.duration || (fullPkg.duration_days ? `${fullPkg.duration_days} Days` : '7 Days');
-  const price = fullPkg.price ? (typeof fullPkg.price === 'number' ? `PKR ${fullPkg.price.toLocaleString()}` : fullPkg.price) : 'PKR 45,000';
+  // rawPrice is always numeric; price is the formatted display string
+  const price = rawPrice > 0 ? `PKR ${rawPrice.toLocaleString()}` : (fullPkg.price ? (typeof fullPkg.price === 'number' ? `PKR ${fullPkg.price.toLocaleString()}` : fullPkg.price) : 'PKR 45,000');
   const destination = fullPkg.destination || 'HUNZA, PAKISTAN';
   const description = fullPkg.description || 'Experience the breathtaking transformation of the Hunza Valley as it turns into a vibrant tapestry of gold and crimson. This curated expedition offers an exclusive retreat into the Karakoram range, blending architectural discovery with high-altitude serenity. From private orchard walks to stays in historic stone retreats, every moment is designed for the discerning traveler seeking profound beauty.';
 
@@ -873,34 +880,40 @@ export default function PackageDetailScreen({ navigation, route }) {
                   </View>
 
                   {/* Financial calculation */}
-                  <View style={styles.breakdownCard}>
-                    <Text style={styles.breakdownTitle}>Checkout Billing Breakdown</Text>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Price per Traveler</Text>
-                      <Text style={styles.breakdownVal}>
-                        {price}
-                      </Text>
+                  {(() => {
+                    const p = rawPrice > 0 ? rawPrice : (typeof fullPkg.price === 'number' ? fullPkg.price : 0);
+                    const totalTravelerPrice = p * numTravelers;
+                    const depPct = fullPkg.deposit_percentage || 50;
+                    const depositDue = totalTravelerPrice * (depPct / 100);
+                    // Platform fee is 10% of original price (before 10% traveler markup)
+                    // API returns p already with 10% markup, so original = p / 1.10
+                    const platformFee = (p / 1.10) * 0.10 * numTravelers;
+                    const agencyPayout = depositDue - platformFee;
+                    return (
+                    <View style={styles.breakdownCard}>
+                      <Text style={styles.breakdownTitle}>Checkout Billing Breakdown</Text>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Price per Traveler (incl. 10% fee)</Text>
+                        <Text style={styles.breakdownVal}>{price}</Text>
+                      </View>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Total Package Price</Text>
+                        <Text style={styles.breakdownVal}>PKR {totalTravelerPrice.toLocaleString()}</Text>
+                      </View>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Platform Fee (10% of pkg)</Text>
+                        <Text style={[styles.breakdownVal, { color: '#B41340' }]}>PKR {platformFee.toLocaleString(undefined, {maximumFractionDigits: 0})}</Text>
+                      </View>
+                      <View style={styles.breakdownDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={[styles.breakdownLabel, { fontWeight: '700' }]}>Deposit to Pay Now ({depPct}%)</Text>
+                        <Text style={[styles.breakdownVal, { color: '#967BB6', fontSize: 15, fontWeight: '700' }]}>
+                          PKR {depositDue.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Total Base Price</Text>
-                      <Text style={styles.breakdownVal}>
-                        PKR {((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0).toLocaleString()}
-                      </Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Deposit Required ({fullPkg.deposit_percentage || 50}%)</Text>
-                      <Text style={styles.breakdownVal}>
-                        PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()}
-                      </Text>
-                    </View>
-                    <View style={styles.breakdownDivider} />
-                    <View style={styles.breakdownRow}>
-                      <Text style={[styles.breakdownLabel, { fontWeight: '700' }]}>Deposit Amount to Pay Now</Text>
-                      <Text style={[styles.breakdownVal, { color: '#967BB6', fontSize: 15, fontWeight: '700' }]}>
-                        PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()}
-                      </Text>
-                    </View>
-                  </View>
+                    );
+                  })()}
 
                   {/* Saved Cards Selection */}
                   {savedCards.length > 0 && (
@@ -1025,7 +1038,7 @@ export default function PackageDetailScreen({ navigation, route }) {
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
                       <Text style={styles.sheetPayBtnTxt}>
-                        Pay PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()} Now
+                        Pay PKR {((rawPrice > 0 ? rawPrice : (typeof fullPkg.price === 'number' ? fullPkg.price : 0)) * numTravelers * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString(undefined, {maximumFractionDigits: 0})} Now
                       </Text>
                     )}
                   </TouchableOpacity>

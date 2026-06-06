@@ -18,14 +18,15 @@ from app.dependencies import get_current_user, get_current_approved_agency, get_
 router = APIRouter(prefix="/api/packages", tags=["Packages"])
 
 
-def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_count: int) -> dict:
+def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_count: int, markup: bool = False) -> dict:
+    price = pkg.price * 1.10 if markup else pkg.price
     return {
         "id": pkg.id,
         "agency_id": pkg.agency_id,
         "agency_name": agency_name,
         "title": pkg.title,
         "destination": pkg.destination,
-        "price": pkg.price,
+        "price": price,
         "duration_days": pkg.duration_days,
         "description": pkg.description,
         "included_services": pkg.included_services,
@@ -42,7 +43,7 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
     }
 
 
-async def _enrich_package(pkg: Package, db: AsyncSession) -> dict:
+async def _enrich_package(pkg: Package, db: AsyncSession, markup: bool = False) -> dict:
     agency_result = await db.execute(select(User).where(User.id == pkg.agency_id))
     agency = agency_result.scalar_one_or_none()
     agency_name = agency.name if agency else "Unknown"
@@ -53,7 +54,7 @@ async def _enrich_package(pkg: Package, db: AsyncSession) -> dict:
     )
     avg_rating, review_count = reviews_result.one()
 
-    return _package_to_dict(pkg, agency_name, round(avg_rating, 1) if avg_rating else None, review_count or 0)
+    return _package_to_dict(pkg, agency_name, round(avg_rating, 1) if avg_rating else None, review_count or 0, markup=markup)
 
 
 # ─── Public / Traveler Browse ─────────────────────────────────────────────────
@@ -81,7 +82,7 @@ async def browse_packages(
     result = await db.execute(query.order_by(Package.created_at.desc()))
     packages = result.scalars().all()
 
-    return [await _enrich_package(p, db) for p in packages]
+    return [await _enrich_package(p, db, markup=True) for p in packages]
 
 
 @router.get("/{package_id}")
@@ -94,7 +95,7 @@ async def get_package(
     pkg = result.scalar_one_or_none()
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
-    return await _enrich_package(pkg, db)
+    return await _enrich_package(pkg, db, markup=True)
 
 
 # ─── Agency Package Management ────────────────────────────────────────────────
@@ -269,7 +270,7 @@ async def get_my_wishlist(
         pkg_result = await db.execute(select(Package).where(Package.id == item.package_id))
         pkg = pkg_result.scalar_one_or_none()
         if pkg:
-            output.append(await _enrich_package(pkg, db))
+            output.append(await _enrich_package(pkg, db, markup=True))
     return output
 
 

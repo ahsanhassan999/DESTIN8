@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../../components/AppHeader';
 import { api } from '../../services/api';
@@ -36,24 +37,27 @@ export default function BankDetailsScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  useEffect(() => {
-    const fetchBankDetails = async () => {
-      try {
-        const details = await api.getBankDetails();
-        if (details) {
-          setBankName(details.bank_name || '');
-          setAccountTitle(details.account_title || '');
-          setAccountNumber(details.account_number || '');
-          setBranchCode(details.branch_code || '');
+  useFocusEffect(
+    useCallback(() => {
+      const fetchBankDetails = async () => {
+        setFetching(true);
+        try {
+          const details = await api.getBankDetails();
+          if (details) {
+            setBankName(details.bank_name || '');
+            setAccountTitle(details.account_title || '');
+            setAccountNumber(details.account_number || '');
+            setBranchCode(details.branch_code || '');
+          }
+        } catch (err) {
+          console.log('Failed to fetch bank details:', err);
+        } finally {
+          setFetching(false);
         }
-      } catch (err) {
-        console.log('Failed to fetch bank details:', err);
-      } finally {
-        setFetching(false);
-      }
-    };
-    fetchBankDetails();
-  }, []);
+      };
+      fetchBankDetails();
+    }, [])
+  );
 
   const handleSave = async () => {
     if (!bankName.trim() || !accountTitle.trim() || !accountNumber.trim() || !branchCode.trim()) {
@@ -63,18 +67,19 @@ export default function BankDetailsScreen({ navigation }) {
 
     setLoading(true);
     try {
-      await api.updateBankDetails({
+      const result = await api.updateBankDetails({
         bank_name: bankName.trim(),
         account_title: accountTitle.trim(),
         account_number: accountNumber.trim(),
         branch_code: branchCode.trim(),
       });
-      
-      Alert.alert('Success', 'Bank details linked successfully!', [
+      console.log('Bank details saved:', result);
+      Alert.alert('Success ✓', 'Bank account linked successfully! Payouts will be sent to this account after traveler deposits.', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to save bank details.');
+      console.log('Bank details save error:', err);
+      Alert.alert('Save Failed', err.message || 'Could not save bank details. Make sure you are logged in as an approved agency and try again.');
     } finally {
       setLoading(false);
     }
