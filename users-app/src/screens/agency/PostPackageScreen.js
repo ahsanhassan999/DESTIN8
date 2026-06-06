@@ -103,6 +103,7 @@ export default function PostPackageScreen({ navigation, route }) {
   const [exclusions, setExclusions] = useState('');
   const [cancellationPolicy, setCancellationPolicy] = useState('Moderate (7 days)');
   const [depositEnabled, setDepositEnabled] = useState(false);
+  const [depositPercentage, setDepositPercentage] = useState(50);
 
   // Group & Logistics
   const [minGroup, setMinGroup] = useState('4');
@@ -167,6 +168,7 @@ export default function PostPackageScreen({ navigation, route }) {
       if (editingPackage.exclusions) setExclusions(editingPackage.exclusions);
       if (editingPackage.cancellation_policy) setCancellationPolicy(editingPackage.cancellation_policy);
       if (editingPackage.deposit_enabled !== undefined) setDepositEnabled(editingPackage.deposit_enabled);
+      if (editingPackage.deposit_percentage !== undefined) setDepositPercentage(editingPackage.deposit_percentage);
       if (editingPackage.min_group) setMinGroup(String(editingPackage.min_group));
       if (editingPackage.max_group) setMaxGroup(String(editingPackage.max_group));
       if (editingPackage.start_point) setStartPoint(editingPackage.start_point);
@@ -371,6 +373,7 @@ export default function PostPackageScreen({ navigation, route }) {
       setExclusions(draftData.exclusions || '');
       setCancellationPolicy(draftData.cancellationPolicy || 'Moderate (7 days)');
       setDepositEnabled(draftData.depositEnabled || false);
+      if (draftData.depositPercentage !== undefined) setDepositPercentage(draftData.depositPercentage);
       setMinGroup(draftData.minGroup || '4');
       setMaxGroup(draftData.maxGroup || '12');
       setStartPoint(draftData.startPoint || '');
@@ -424,6 +427,7 @@ export default function PostPackageScreen({ navigation, route }) {
           exclusions,
           cancellationPolicy,
           depositEnabled,
+          depositPercentage,
           minGroup,
           maxGroup,
           startPoint,
@@ -455,6 +459,7 @@ export default function PostPackageScreen({ navigation, route }) {
     exclusions,
     cancellationPolicy,
     depositEnabled,
+    depositPercentage,
     minGroup,
     maxGroup,
     startPoint,
@@ -568,6 +573,7 @@ export default function PostPackageScreen({ navigation, route }) {
           departureDate: null,
           is_active: isPublish,
           itinerary: days,
+          deposit_percentage: depositPercentage,
         });
       } else {
         await api.createPackage({
@@ -581,6 +587,7 @@ export default function PostPackageScreen({ navigation, route }) {
           departureDate: null,
           is_active: isPublish,
           itinerary: days,
+          deposit_percentage: depositPercentage,
         });
       }
 
@@ -1241,14 +1248,68 @@ export default function PostPackageScreen({ navigation, route }) {
                 </View>
               </View>
 
-              {/* Installment Toggle */}
-              <View style={[styles.field, styles.toggleField]}>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={styles.toggleTitle}>Installment Payment Option</Text>
-                  <Text style={styles.toggleDesc}>Enable 30% booking deposit. Balance due on departure.</Text>
+              {/* Advance Deposit Configurator */}
+              <View style={styles.field}>
+                <Text style={styles.label}>Advance Deposit Required (%)</Text>
+                <View style={styles.btnRow}>
+                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((pct) => (
+                    <TouchableOpacity
+                      key={pct}
+                      style={[
+                        styles.chipBtn,
+                        depositPercentage === pct ? styles.chipBtnActive : styles.chipBtnInactive,
+                        { marginHorizontal: 2, marginVertical: 4, minWidth: 42 }
+                      ]}
+                      onPress={() => setDepositPercentage(pct)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipBtnTxt,
+                          depositPercentage === pct ? styles.chipBtnTxtActive : styles.chipBtnTxtInactive,
+                          { fontSize: 11 }
+                        ]}
+                      >
+                        {pct}%
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <CustomSwitch value={depositEnabled} onValueChange={setDepositEnabled} />
               </View>
+
+              {/* Dynamic Billing Breakdown */}
+              {price.trim() !== '' && !isNaN(parseFloat(price)) && (
+                <View style={styles.breakdownCard}>
+                  <Text style={styles.breakdownTitle}>Booking Payment Breakdown</Text>
+                  
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Total Package Price</Text>
+                    <Text style={styles.breakdownVal}>{parseFloat(price).toLocaleString()} PKR</Text>
+                  </View>
+                  
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Deposit Required ({depositPercentage}%)</Text>
+                    <Text style={styles.breakdownVal}>
+                      {(parseFloat(price) * (depositPercentage / 100)).toLocaleString()} PKR
+                    </Text>
+                  </View>
+
+                  <View style={styles.breakdownDivider} />
+
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Platform Fee (10% of Deposit)</Text>
+                    <Text style={styles.breakdownVal}>
+                      {(parseFloat(price) * (depositPercentage / 100) * 0.1).toLocaleString()} PKR
+                    </Text>
+                  </View>
+
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Net Payout to Agency</Text>
+                    <Text style={[styles.breakdownVal, { color: C.success, fontWeight: '700' }]}>
+                      {(parseFloat(price) * (depositPercentage / 100) * 0.9).toLocaleString()} PKR
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
 
@@ -2054,5 +2115,40 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 13,
     color: '#595C5D',
+  },
+  breakdownCard: {
+    backgroundColor: '#EFF1F2',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.2)',
+  },
+  breakdownTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 14,
+    color: '#2C2F30',
+    marginBottom: 4,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 13,
+    color: '#595C5D',
+  },
+  breakdownVal: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: '#2C2F30',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: 'rgba(171, 173, 174, 0.2)',
+    marginVertical: 4,
   },
 });

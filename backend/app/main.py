@@ -59,6 +59,26 @@ async def on_startup():
             await conn.execute(text("ALTER TABLE packages ADD COLUMN takedown_reason TEXT"))
         except Exception:
             pass
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN deposit_percentage INTEGER DEFAULT 50"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE agency_profiles ADD COLUMN bank_name TEXT"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE agency_profiles ADD COLUMN account_title TEXT"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE agency_profiles ADD COLUMN account_number TEXT"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE agency_profiles ADD COLUMN branch_code TEXT"))
+        except Exception:
+            pass
     print("[OK] DESTIN8 API started - database tables created and migrated.")
 
 

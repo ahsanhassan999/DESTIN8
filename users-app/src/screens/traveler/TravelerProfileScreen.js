@@ -25,11 +25,11 @@ export default function TravelerProfileScreen({ navigation }) {
   const initials = getInitials(name);
 
   const MENU = [
+    { icon: 'receipt-long', label: 'Payment Receipts', onPress: () => navigation.navigate('PaymentReceipts') },
     { icon: 'person', label: 'Edit Profile', onPress: () => {} },
     { icon: 'notifications', label: 'Notifications', onPress: () => {} },
     { icon: 'lock', label: 'Privacy & Security', onPress: () => {} },
     { icon: 'help', label: 'Help & Support', onPress: () => {} },
-    { icon: 'description', label: 'Terms of Service', onPress: () => {} },
   ];
 
   return (

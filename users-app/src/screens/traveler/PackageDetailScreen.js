@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, FlatList, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -212,6 +212,150 @@ export default function PackageDetailScreen({ navigation, route }) {
   const [wishlisted, setWishlisted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState(1);
+
+  // Booking & Checkout States
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+  const [numTravelers, setNumTravelers] = useState(1);
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedCardId, setSelectedCardId] = useState('new');
+  
+  // Custom Card fields
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [cardholderName, setCardholderName] = useState('');
+  const [saveCard, setSaveCard] = useState(false);
+  
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+
+  useEffect(() => {
+    if (isTraveler && checkoutVisible) {
+      loadSavedCards();
+    }
+  }, [isTraveler, checkoutVisible]);
+
+  const loadSavedCards = async () => {
+    try {
+      const cards = await api.getSavedCards();
+      setSavedCards(cards || []);
+      if (cards && cards.length > 0) {
+        setSelectedCardId(cards[0].id);
+      } else {
+        setSelectedCardId('new');
+      }
+    } catch (err) {
+      console.log('Failed to load saved cards', err);
+    }
+  };
+
+  const checkLuhn = (num) => {
+    const digits = num.replace(/\D/g, '').split('').map(Number);
+    let sum = 0;
+    let isEven = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = digits[i];
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      isEven = !isEven;
+    }
+    return sum % 10 === 0;
+  };
+
+  const handleCardNumberChange = (text) => {
+    const cleaned = text.replace(/\D/g, '');
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    setCardNumber(formatted.slice(0, 19));
+  };
+
+  const handleExpiryChange = (text) => {
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length > 2) {
+      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
+    }
+    setExpiry(formatted.slice(0, 5));
+  };
+
+  const handlePayment = async () => {
+    setPaymentError('');
+    setPaymentLoading(true);
+    let bookingId = null;
+    try {
+      const bookingData = await api.createBooking({
+        packageId: fullPkg.id,
+        numTravelers: numTravelers,
+        travelDate: fullPkg.departure_date || new Date().toISOString().split('T')[0],
+        notes: "Deposit payment check-out",
+      });
+      bookingId = bookingData.id;
+    } catch (err) {
+      setPaymentLoading(false);
+      setPaymentError(err.message || 'Failed to create booking.');
+      return;
+    }
+
+    try {
+      let payload = {
+        save_card: saveCard,
+      };
+
+      if (selectedCardId === 'new') {
+        const cleanCard = cardNumber.replace(/\s/g, '');
+        if (!cleanCard) {
+          throw new Error('Please enter card number.');
+        }
+        if (!checkLuhn(cleanCard)) {
+          throw new Error('Card failed Luhn checksum validation.');
+        }
+        if (!cvv || cvv.length < 3) {
+          throw new Error('Please enter valid CVV.');
+        }
+        if (!expiry || !expiry.includes('/')) {
+          throw new Error('Expiry date must be in MM/YY format.');
+        }
+        const [mm, yy] = expiry.split('/');
+        const month = parseInt(mm, 10);
+        const year = parseInt(yy, 10) + 2000;
+        if (month < 1 || month > 12) {
+          throw new Error('Invalid expiration month.');
+        }
+        const now = new Date();
+        if (year < now.getFullYear() || (year === now.getFullYear() && month < (now.getMonth() + 1))) {
+          throw new Error('Card has expired.');
+        }
+
+        payload.card_number = cleanCard;
+        payload.expiry_month = month;
+        payload.expiry_year = year;
+        payload.cvv = cvv;
+      } else {
+        payload.saved_card_id = selectedCardId;
+      }
+
+      await api.payBooking(bookingId, payload);
+      
+      setPaymentLoading(false);
+      setPaymentSuccess(true);
+      setTimeout(() => {
+        setPaymentSuccess(false);
+        setCheckoutVisible(false);
+        setCardNumber('');
+        setExpiry('');
+        setCvv('');
+        setCardholderName('');
+        setSaveCard(false);
+        navigation.navigate('Bookings');
+      }, 2000);
+    } catch (err) {
+      setPaymentLoading(false);
+      setPaymentError(err.message || 'Payment failed.');
+    }
+  };
 
   useEffect(() => {
     if (!pkg.id) return;
@@ -655,10 +799,242 @@ export default function PackageDetailScreen({ navigation, route }) {
         <TouchableOpacity
           style={styles.ctaButton}
           activeOpacity={0.9}
+          onPress={() => {
+            if (isTraveler) {
+              setCheckoutVisible(true);
+            } else {
+              Alert.alert("Enquiry", "Please contact the agency directly or log in as traveler to book.");
+            }
+          }}
         >
-          <Text style={styles.ctaButtonText}>Enquire Now</Text>
+          <Text style={styles.ctaButtonText}>{isTraveler ? "Book Now" : "Enquire Now"}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Checkout Modal */}
+      <Modal
+        visible={checkoutVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          if (!paymentLoading) setCheckoutVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+          >
+            <View style={styles.checkoutSheet}>
+              {/* Header */}
+              <View style={styles.checkoutHeader}>
+                <Text style={styles.checkoutTitle}>Checkout Booking</Text>
+                {!paymentLoading && (
+                  <TouchableOpacity onPress={() => setCheckoutVisible(false)}>
+                    <MaterialIcons name="close" size={24} color="#2C2F30" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {paymentSuccess ? (
+                <View style={styles.successContainer}>
+                  <MaterialIcons name="check-circle" size={80} color="#10B981" />
+                  <Text style={styles.successTextTitle}>Payment Successful!</Text>
+                  <Text style={styles.successSubtext}>Your booking is confirmed.</Text>
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                  {/* Package Summary */}
+                  <View style={styles.summaryBox}>
+                    <Text style={styles.summaryPkgTitle}>{title}</Text>
+                    <Text style={styles.summaryPkgDest}>{destination}</Text>
+                  </View>
+
+                  {/* Traveler count selector */}
+                  <View style={styles.sectionRow}>
+                    <Text style={styles.sectionLabel}>Number of Travelers</Text>
+                    <View style={styles.counterRow}>
+                      <TouchableOpacity 
+                        style={styles.counterBtn} 
+                        onPress={() => numTravelers > 1 && setNumTravelers(numTravelers - 1)}
+                        disabled={paymentLoading}
+                      >
+                        <MaterialIcons name="remove" size={18} color="#2C2F30" />
+                      </TouchableOpacity>
+                      <Text style={styles.counterVal}>{numTravelers}</Text>
+                      <TouchableOpacity 
+                        style={styles.counterBtn} 
+                        onPress={() => setNumTravelers(numTravelers + 1)}
+                        disabled={paymentLoading}
+                      >
+                        <MaterialIcons name="add" size={18} color="#2C2F30" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Financial calculation */}
+                  <View style={styles.breakdownCard}>
+                    <Text style={styles.breakdownTitle}>Checkout Billing Breakdown</Text>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Price per Traveler</Text>
+                      <Text style={styles.breakdownVal}>
+                        {price}
+                      </Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Total Base Price</Text>
+                      <Text style={styles.breakdownVal}>
+                        PKR {((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Deposit Required ({fullPkg.deposit_percentage || 50}%)</Text>
+                      <Text style={styles.breakdownVal}>
+                        PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View style={styles.breakdownDivider} />
+                    <View style={styles.breakdownRow}>
+                      <Text style={[styles.breakdownLabel, { fontWeight: '700' }]}>Deposit Amount to Pay Now</Text>
+                      <Text style={[styles.breakdownVal, { color: '#967BB6', fontSize: 15, fontWeight: '700' }]}>
+                        PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Saved Cards Selection */}
+                  {savedCards.length > 0 && (
+                    <View style={{ marginTop: 16 }}>
+                      <Text style={styles.inputSectionLabel}>Select Saved Card</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsScroll}>
+                        {savedCards.map(c => (
+                          <TouchableOpacity
+                            key={c.id}
+                            style={[
+                              styles.cardChip,
+                              selectedCardId === c.id && styles.cardChipSelected
+                            ]}
+                            onPress={() => setSelectedCardId(c.id)}
+                            disabled={paymentLoading}
+                          >
+                            <MaterialIcons name="credit-card" size={20} color={selectedCardId === c.id ? '#ffffff' : '#967BB6'} />
+                            <Text style={[styles.cardChipText, selectedCardId === c.id && styles.cardChipTextSelected]}>
+                              {c.card_brand} *{c.last_four}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity
+                          style={[
+                            styles.cardChip,
+                            selectedCardId === 'new' && styles.cardChipSelected
+                          ]}
+                          onPress={() => setSelectedCardId('new')}
+                          disabled={paymentLoading}
+                        >
+                          <MaterialIcons name="add" size={20} color={selectedCardId === 'new' ? '#ffffff' : '#967BB6'} />
+                          <Text style={[styles.cardChipText, selectedCardId === 'new' && styles.cardChipTextSelected]}>
+                            Use another card
+                          </Text>
+                        </TouchableOpacity>
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* New Card Fields */}
+                  {selectedCardId === 'new' && (
+                    <View style={styles.cardFieldsSection}>
+                      <Text style={styles.inputSectionLabel}>Enter Credit / Debit Card Details</Text>
+                      
+                      <View style={styles.inputWrap}>
+                        <MaterialIcons name="credit-card" size={20} color="#595C5D" style={styles.fieldIcon} />
+                        <TextInput
+                          placeholder="Card Number (e.g. 4242 4242 4242 4242)"
+                          style={styles.sheetInput}
+                          keyboardType="numeric"
+                          value={cardNumber}
+                          onChangeText={handleCardNumberChange}
+                          disabled={paymentLoading}
+                        />
+                      </View>
+
+                      <View style={styles.inputRow}>
+                        <View style={[styles.inputWrap, { flex: 1 }]}>
+                          <MaterialIcons name="event" size={20} color="#595C5D" style={styles.fieldIcon} />
+                          <TextInput
+                            placeholder="Expiry (MM/YY)"
+                            style={styles.sheetInput}
+                            keyboardType="numeric"
+                            value={expiry}
+                            onChangeText={handleExpiryChange}
+                            disabled={paymentLoading}
+                          />
+                        </View>
+                        <View style={[styles.inputWrap, { flex: 1 }]}>
+                          <MaterialIcons name="lock" size={20} color="#595C5D" style={styles.fieldIcon} />
+                          <TextInput
+                            placeholder="CVV"
+                            style={styles.sheetInput}
+                            keyboardType="numeric"
+                            secureTextEntry
+                            value={cvv}
+                            onChangeText={text => setCvv(text.replace(/\D/g, '').slice(0, 4))}
+                            disabled={paymentLoading}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.inputWrap}>
+                        <MaterialIcons name="person" size={20} color="#595C5D" style={styles.fieldIcon} />
+                        <TextInput
+                          placeholder="Cardholder Name"
+                          style={styles.sheetInput}
+                          value={cardholderName}
+                          onChangeText={setCardholderName}
+                          disabled={paymentLoading}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.checkboxRow}
+                        onPress={() => setSaveCard(!saveCard)}
+                        disabled={paymentLoading}
+                      >
+                        <MaterialIcons 
+                          name={saveCard ? "check-box" : "check-box-outline-blank"} 
+                          size={22} 
+                          color="#967BB6" 
+                        />
+                        <Text style={styles.checkboxLabel}>Save this card for later payments</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {paymentError ? (
+                    <Text style={styles.errorText}>{paymentError}</Text>
+                  ) : null}
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    style={[styles.sheetPayBtn, paymentLoading && { backgroundColor: 'rgba(150, 123, 182, 0.6)' }]}
+                    activeOpacity={0.8}
+                    onPress={handlePayment}
+                    disabled={paymentLoading}
+                  >
+                    {paymentLoading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.sheetPayBtnTxt}>
+                        Pay PKR {(((typeof fullPkg.price === 'number' ? fullPkg.price : parseFloat(String(fullPkg.price).replace(/[^0-9.]/g, ''))) * numTravelers || 0) * ((fullPkg.deposit_percentage || 50) / 100)).toLocaleString()} Now
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1114,5 +1490,224 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_500Medium',
     fontSize: 11,
     color: '#52396f',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  checkoutSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    maxHeight: height * 0.85,
+  },
+  checkoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  checkoutTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 20,
+    color: '#2C2F30',
+  },
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+    gap: 16,
+  },
+  successTextTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 22,
+    color: '#10B981',
+  },
+  successSubtext: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 15,
+    color: '#595C5D',
+  },
+  summaryBox: {
+    backgroundColor: '#F3F4F5',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  summaryPkgTitle: {
+    fontFamily: 'Epilogue_600SemiBold',
+    fontSize: 15,
+    color: '#191C1D',
+  },
+  summaryPkgDest: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 12,
+    color: '#595C5D',
+    marginTop: 2,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 14,
+    color: '#2C2F30',
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e7e8e9',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  counterBtn: {
+    padding: 8,
+    backgroundColor: '#f3f4f5',
+  },
+  counterVal: {
+    paddingHorizontal: 16,
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+    color: '#2C2F30',
+  },
+  breakdownCard: {
+    backgroundColor: '#F8F6FC',
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.2)',
+    marginBottom: 16,
+  },
+  breakdownTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 14,
+    color: '#2C2F30',
+    marginBottom: 4,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 13,
+    color: '#595C5D',
+  },
+  breakdownVal: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: '#2C2F30',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: 'rgba(171, 173, 174, 0.2)',
+    marginVertical: 4,
+  },
+  inputSectionLabel: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+    color: '#2C2F30',
+    marginBottom: 12,
+  },
+  cardsScroll: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  cardChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F5',
+    borderWidth: 1,
+    borderColor: '#e7e8e9',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginRight: 10,
+    gap: 8,
+  },
+  cardChipSelected: {
+    backgroundColor: '#967BB6',
+    borderColor: '#967BB6',
+  },
+  cardChipText: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+    color: '#595C5D',
+  },
+  cardChipTextSelected: {
+    color: '#ffffff',
+  },
+  cardFieldsSection: {
+    gap: 12,
+    marginTop: 8,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#e7e8e9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    backgroundColor: '#fdfdfd',
+  },
+  fieldIcon: {
+    marginRight: 8,
+  },
+  sheetInput: {
+    flex: 1,
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#2C2F30',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  checkboxLabel: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 13,
+    color: '#595C5D',
+  },
+  errorText: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+    color: '#B41340',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  sheetPayBtn: {
+    backgroundColor: '#967BB6',
+    borderRadius: 12,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    shadowColor: '#967BB6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  sheetPayBtnTxt: {
+    fontFamily: 'Epilogue_600SemiBold',
+    fontSize: 16,
+    color: '#ffffff',
   },
 });

@@ -120,6 +120,7 @@ export const api = {
         departure_date: pkgData.departureDate || null,
         is_active: pkgData.is_active !== undefined ? pkgData.is_active : true,
         itinerary: JSON.stringify(pkgData.itinerary || pkgData.days || []),
+        deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : 50,
       }),
     });
   },
@@ -138,6 +139,7 @@ export const api = {
         departure_date: pkgData.departureDate,
         is_active: pkgData.is_active,
         itinerary: (pkgData.itinerary || pkgData.days) ? JSON.stringify(pkgData.itinerary || pkgData.days) : undefined,
+        deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : undefined,
       }),
     });
   },
@@ -200,5 +202,39 @@ export const api = {
 
   cancelBooking: async (bookingId) => {
     return await request(`/api/bookings/${bookingId}`, { method: 'DELETE' });
+  },
+
+  payBooking: async (bookingId, paymentData) => {
+    return await request(`/api/bookings/${bookingId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  },
+
+  getSavedCards: async () => {
+    return await request('/api/bookings/saved-cards', { method: 'GET' });
+  },
+
+  deleteSavedCard: async (cardId) => {
+    return await request(`/api/bookings/saved-cards/${cardId}`, { method: 'DELETE' });
+  },
+
+  getBankDetails: async () => {
+    return await request('/api/bookings/agency/bank-details', { method: 'GET' });
+  },
+
+  updateBankDetails: async (bankData) => {
+    return await request('/api/bookings/agency/bank-details', {
+      method: 'PATCH',
+      body: JSON.stringify(bankData),
+    });
+  },
+
+  getAgencyWallet: async () => {
+    return await request('/api/bookings/agency/wallet', { method: 'GET' });
+  },
+
+  getTravelerPayments: async () => {
+    return await request('/api/bookings/traveler/payments', { method: 'GET' });
   },
 };

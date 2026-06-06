@@ -25,12 +25,11 @@ export default function AgencyProfileScreen({ navigation }) {
   const initials = getInitials(name);
 
   const MENU = [
-    { icon: 'business', label: 'Company Profile', onPress: () => {} },
-    { icon: 'card-travel', label: 'Manage Packages', onPress: () => navigation.navigate('Packages') },
+    { icon: 'account-balance', label: 'Bank Account Setup', onPress: () => navigation.navigate('BankDetails') },
+    { icon: 'account-balance-wallet', label: 'Wallet & Payouts', onPress: () => navigation.navigate('AgencyWallet') },
+    { icon: 'card-travel', label: 'Manage Packages', onPress: () => navigation.navigate('Post Package') },
     { icon: 'chat', label: 'Messages & Inquiries', onPress: () => navigation.navigate('Chat') },
     { icon: 'star', label: 'Customer Reviews', onPress: () => {} },
-    { icon: 'lock', label: 'Privacy & Credentials', onPress: () => {} },
-    { icon: 'description', label: 'Terms of Partnership', onPress: () => {} },
   ];
 
   return (

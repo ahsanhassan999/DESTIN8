@@ -35,6 +35,7 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
         "itinerary": pkg.itinerary,
         "is_takedown": pkg.is_takedown,
         "takedown_reason": pkg.takedown_reason,
+        "deposit_percentage": pkg.deposit_percentage,
         "created_at": str(pkg.created_at),
         "average_rating": avg_rating,
         "review_count": review_count,
@@ -129,6 +130,7 @@ async def create_package(
         departure_date=data.departure_date,
         is_active=data.is_active if data.is_active is not None else True,
         itinerary=data.itinerary or "[]",
+        deposit_percentage=data.deposit_percentage if data.deposit_percentage is not None else 50,
     )
     db.add(pkg)
     await db.commit()
@@ -166,6 +168,7 @@ async def update_package(
             )
         pkg.is_active = data.is_active
     if data.itinerary is not None: pkg.itinerary = data.itinerary
+    if data.deposit_percentage is not None: pkg.deposit_percentage = data.deposit_percentage
 
     await db.commit()
     await db.refresh(pkg)

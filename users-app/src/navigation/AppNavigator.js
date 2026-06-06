@@ -25,12 +25,15 @@ import TravelerProfileScreen   from '../screens/traveler/TravelerProfileScreen';
 import ChatListScreen          from '../screens/traveler/ChatListScreen';
 import ChatDetailScreen        from '../screens/traveler/ChatDetailScreen';
 import MyTripsScreen           from '../screens/traveler/MyTripsScreen';
+import PaymentReceiptsScreen   from '../screens/traveler/PaymentReceiptsScreen';
 
 // ── Agency
 import AgencyDashboardScreen from '../screens/agency/AgencyDashboardScreen';
 import PostPackageScreen     from '../screens/agency/PostPackageScreen';
 import MyPackagesScreen      from '../screens/agency/MyPackagesScreen';
 import AgencyProfileScreen   from '../screens/agency/AgencyProfileScreen';
+import BankDetailsScreen     from '../screens/agency/BankDetailsScreen';
+import AgencyWalletScreen    from '../screens/agency/AgencyWalletScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -226,6 +229,7 @@ function TravelerStack() {
       <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
       <Stack.Screen name="ChatDetail"    component={ChatDetailScreen} />
       <Stack.Screen name="Profile"       component={TravelerProfileScreen} />
+      <Stack.Screen name="PaymentReceipts" component={PaymentReceiptsScreen} />
     </Stack.Navigator>
   );
 }
@@ -237,6 +241,8 @@ function AgencyStack() {
       <Stack.Screen name="PostPackageForm" component={PostPackageScreen} />
       <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
       <Stack.Screen name="Profile"    component={AgencyProfileScreen} />
+      <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
+      <Stack.Screen name="AgencyWallet" component={AgencyWalletScreen} />
     </Stack.Navigator>
   );
 }
