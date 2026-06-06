@@ -1,63 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Image, Dimensions, ImageBackground, Animated
+  ScrollView, Image, Dimensions, ImageBackground, Animated,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import AppHeader from '../../components/AppHeader';
 import { LinearGradient } from 'expo-linear-gradient';
-import { mockPackages } from '../../store/mockData';
+import { api } from '../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const CARD_W = width * 0.85;
-
-const FEATURED = [
-  {
-    id: 'f1',
-    title: 'The Inca Trail Expedition',
-    destination: 'Cusco, Peru',
-    duration: '7 Days',
-    price: '$1,250',
-    rating: '4.9',
-    img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCIFbc5TnN4FwTNMowikr9ltfn6zwXoP0NgqH7Mwnp2P0tdMs3jisyfLrWh8fvMfhbJzQU9YIMdq0dXdoymev2fxSWP1SE89OLk25HOaD2mCP_dXOhBeYtxNeK3XjaM_qVGgQiCvns-_Mrra4dX2GPnZZbd97qQP4fgQOl2uSLB9hOn7FN4LzZTRDmCIGC0nzjXwvVd4VdJshdeQBrUdJR_OCVPp4s2AtPMEYFNbQsShx_JKdk9j2-sPt6iueBznT_kSjlmlGR-OE7_',
-  },
-  {
-    id: 'f2',
-    title: 'Alpine Wellness Retreat',
-    destination: 'Zermatt, CH',
-    duration: '5 Days',
-    price: '$2,400',
-    rating: '4.8',
-    img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA4RHt0feVWS_UhZrCcU07rVmfJOKus1ameQXsuCa4KSgOYMcJgGGechG-26aBS0tktVCTAlJxzqQopKpK-DhJJM7uwIPLcM8lvbzTcvGuDIhU_Pd0M0PcwKQWxcFGG5DsgBDlPxP5pHkxPsRuYDB1xDNEzSScCrssvtyWnWGcGQFhNF6PJ6_rRYlAtuA6iLfsTdZIVqdwwY_cA0qBq4ovwmWAqt8Mi1RpFr3SZ3ZXqozUlMxVXHr2t71yloo1HAqA5B4rkbicdYTqK',
-  },
-];
-
-const ESCAPES = [
-  {
-    id: 'e1',
-    title: 'Lisbon City Break',
-    info: '3 Days • Flights Inc.',
-    price: '$450',
-    img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDtkHjw5OgUuKnPpk9Kq69OHqa8Wou08cBxX7J7kW7duMpqdgj5M-TT2EAhXMxXTJV8skguspv1DD9r18C-qAoCpYl5BzyUKQcpRYCYmLx2Pe-IsWVAe_XsXhARv_jyFORO8VW1_t7RTESV0HMUNTAY9TZQsAiTzuDVcVlRee-szO2gNsOJrBhC52bGd-EU-FtNHa-UE4fehUuI9BHhvuFGnX8lSWMJqPeQHFc4SBqLMgwWU0V-gSiDccl2E1jzrSMNNol4zJtoEHNT',
-  },
-  {
-    id: 'e2',
-    title: 'Istanbul Express',
-    info: '4 Days • Cultural Tour',
-    price: '$520',
-    img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAHlw9xWL6flQPDcb_3H0EJRb3Br12WWz8VJd5IuV-qDM7jJskmBnzKLHMTPPC_HPTZyu07hQhmpy9QNSOiWZqzEuRSrP5ztsOQNxpdMsxla5noJKXT1kSFCrzDM1xZkCpHK-FrdM42_pqR5Id0508Bfky17ZaTnzMxdBnX9ojj1PCNX5Q7avsi_ZYJYFKy_kN-neg9BmmAW0IuUpzwmdH4ZjPTUMirC_u9hqydXWPBNqkxW4oADwcht2ArjGgyfoULDIgN4ezkTJ00',
-    isGreyBg: true,
-  },
-  {
-    id: 'e3',
-    title: 'London Weekend',
-    info: '2 Days • City Center',
-    price: '$380',
-    img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB71ZTezulqn-dQN778X6XLjdYxICv21qJ-gqYvFnTTrIKf-UH4fQRLCk_e9UV79TME-u6mjyI3nE7dvYiL596nH13Gxm0eQEDRuDPJ4tDW-zl5v_eLTs-lHAlJSJCIpwwiHvGG6sDqinVNoBW5FhA2Ion0GeskfRg9eJvIV7XLykGCoaDUkB8pV9GcYh4dKMQryA1pyYHcjMQ1suwRAgqDliPDN_ONLkV54ghjqJIjsBhTPcCQEOGfy7ItoBB4lGDp55EU8DZUx3w1',
-  },
-];
 
 const CATEGORIES = [
   { id: 'mountains', label: 'Mountains', icon: 'landscape' },
@@ -71,21 +27,81 @@ export default function TravelerDashboardScreen({ navigation }) {
   const [activeCategory, setActiveCategory] = useState('mountains');
   const [compareList, setCompareList] = useState(new Set());
   const { user } = useAuth();
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Combine all images from different sources to show behind "Where to next?"
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadPackages = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const data = await api.getPackages();
+      setPackages(data);
+    } catch (err) {
+      console.error('Error fetching packages:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPackages(false);
+    }, [loadPackages])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadPackages(false);
+  }, [loadPackages]);
+
+  const mappedPackages = React.useMemo(() => {
+    return packages.map(pkg => ({
+      id: pkg.id,
+      title: pkg.title,
+      destination: pkg.destination,
+      duration: `${pkg.duration_days} Days`,
+      price: pkg.price < 10000 ? `$${pkg.price}` : `PKR ${pkg.price.toLocaleString()}`,
+      rating: pkg.average_rating ? pkg.average_rating.toFixed(1) : '4.8',
+      img: pkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15',
+      description: pkg.description,
+      inclusions: JSON.parse(pkg.included_services || '[]'),
+      itinerary: pkg.itinerary || '[]',
+      agency: pkg.agency_name || 'Odyssey Travels',
+      startDate: pkg.departure_date || 'Oct 12, 2026',
+    }));
+  }, [packages]);
+
+  const filteredPackages = React.useMemo(() => {
+    if (!searchQuery) return mappedPackages;
+    return mappedPackages.filter(p =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.destination.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [mappedPackages, searchQuery]);
+
+  const featured = React.useMemo(() => {
+    return filteredPackages.slice(0, 2);
+  }, [filteredPackages]);
+
+  const escapes = React.useMemo(() => {
+    return filteredPackages.slice(2).map((item, idx) => ({
+      ...item,
+      info: `${item.duration} • Tour Included`,
+      isGreyBg: idx % 2 === 1,
+    }));
+  }, [filteredPackages]);
+
   const packageImages = React.useMemo(() => {
-    const list = [
-      ...FEATURED.map(p => p.img),
-      ...ESCAPES.map(p => p.img),
-      ...mockPackages.map(p => p.image || p.img)
-    ].filter(Boolean);
-    
-    // Add default fallback if list is empty
+    const list = mappedPackages.map(p => p.img).filter(Boolean);
     if (list.length === 0) {
       list.push('https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15');
     }
     return list;
-  }, []);
+  }, [mappedPackages]);
 
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [nextImgIndex, setNextImgIndex] = useState(1);
@@ -130,7 +146,18 @@ export default function TravelerDashboardScreen({ navigation }) {
       <View style={styles.bgOrb2} pointerEvents="none" />
       <View style={styles.bgOrb3} pointerEvents="none" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#967BB6']}
+            tintColor="#967BB6"
+          />
+        }
+      >
         {/* Hero Section */}
         <View style={styles.hero}>
           {/* Base current image */}
@@ -159,11 +186,14 @@ export default function TravelerDashboardScreen({ navigation }) {
 
             {/* Smart Search Bar */}
             <View style={styles.searchBar}>
-              <MaterialIcons name="search" size={22} color="#595c5d" />
+              <MaterialIcons name="search" size={22} color="#595c5d" style={{ backgroundColor: 'transparent' }} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { backgroundColor: 'transparent' }]}
                 placeholder="Search destinations or activities..."
                 placeholderTextColor="rgba(89, 92, 93, 0.6)"
+                underlineColorAndroid="transparent"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
               />
             </View>
           </View>
@@ -190,6 +220,7 @@ export default function TravelerDashboardScreen({ navigation }) {
                     name={cat.icon}
                     size={24}
                     color={isActive ? '#52396f' : '#595c5d'}
+                    style={{ backgroundColor: 'transparent' }}
                   />
                 </View>
                 <Text style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}>
@@ -217,7 +248,7 @@ export default function TravelerDashboardScreen({ navigation }) {
             snapToInterval={CARD_W + 24}
             decelerationRate="fast"
           >
-            {FEATURED.map(item => {
+            {featured.map(item => {
               const isCompared = compareList.has(item.id);
               return (
                 <TouchableOpacity
@@ -241,19 +272,19 @@ export default function TravelerDashboardScreen({ navigation }) {
                     activeOpacity={0.85}
                   >
                     <View style={styles.checkboxRound}>
-                      {isCompared && <MaterialIcons name="check" size={14} color="#52396f" />}
+                      {isCompared && <MaterialIcons name="check" size={14} color="#52396f" style={{ backgroundColor: 'transparent' }} />}
                     </View>
                   </TouchableOpacity>
-
+ 
                   {/* Content Details */}
                   <View style={styles.featuredDetails}>
                     <View style={styles.badgeRow}>
                       <View style={styles.verifiedBadge}>
-                        <MaterialIcons name="verified-user" size={12} color="#52396f" style={{ marginRight: 2 }} />
+                        <MaterialIcons name="verified-user" size={12} color="#52396f" style={{ marginRight: 2, backgroundColor: 'transparent' }} />
                         <Text style={styles.verifiedText}>Verified Agency</Text>
                       </View>
                       <View style={styles.ratingRow}>
-                        <MaterialIcons name="star" size={14} color="#903985" style={{ marginRight: 2 }} />
+                        <MaterialIcons name="star" size={14} color="#903985" style={{ marginRight: 2, backgroundColor: 'transparent' }} />
                         <Text style={styles.ratingText}>{item.rating}</Text>
                       </View>
                     </View>
@@ -268,14 +299,14 @@ export default function TravelerDashboardScreen({ navigation }) {
             })}
           </ScrollView>
         </View>
-
+ 
         {/* Budget-Friendly Escapes */}
         <View style={[styles.section, { paddingBottom: 140 }]}>
           <Text style={[styles.sectionTitle, { paddingHorizontal: 24, marginBottom: 24 }]}>
             Budget-Friendly Escapes
           </Text>
           <View style={styles.escapesList}>
-            {ESCAPES.map(item => (
+            {escapes.map(item => (
               <TouchableOpacity
                 key={item.id}
                 style={[styles.escapeCard, item.isGreyBg && styles.escapeCardGrey]}
@@ -293,7 +324,7 @@ export default function TravelerDashboardScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
-
+ 
       {/* Floating Action Button (Compare selected items) */}
       {compareList.size > 0 && (
         <View style={styles.compareFabContainer}>
@@ -301,7 +332,7 @@ export default function TravelerDashboardScreen({ navigation }) {
             style={styles.compareFab}
             activeOpacity={0.85}
           >
-            <MaterialIcons name="compare-arrows" size={20} color="#52396f" />
+            <MaterialIcons name="compare-arrows" size={20} color="#52396f" style={{ backgroundColor: 'transparent' }} />
             <Text style={styles.compareFabText}>Compare ({compareList.size})</Text>
           </TouchableOpacity>
         </View>
@@ -371,16 +402,16 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 32,
+    height: 56,
+    paddingHorizontal: 20,
     gap: 12,
     shadowColor: '#2c2f30',
-    shadowOffset: { width: 0, height: 32 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 48,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(150, 123, 182, 0.12)',
   },
@@ -401,7 +432,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2c2f30',
@@ -457,7 +488,7 @@ const styles = StyleSheet.create({
     height: CARD_W * 1.05,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#ffffff',
     position: 'relative',
     shadowColor: '#2c2f30',
     shadowOffset: { width: 0, height: 32 },
@@ -488,7 +519,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2c2f30',
@@ -555,7 +586,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#ffffff',
     gap: 16,
     shadowColor: '#2c2f30',
     shadowOffset: { width: 0, height: 16 },
@@ -604,7 +635,7 @@ const styles = StyleSheet.create({
   compareFab: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 9999,

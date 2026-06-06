@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.database import engine, Base
-from app.routers import auth, admin, packages
+from app.routers import auth, admin, packages, bookings
 
 # ── App Setup ──────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -33,14 +33,33 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(packages.router)
+app.include_router(bookings.router)
 
 
 # ── DB Init on Startup ─────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup():
+    from sqlalchemy import text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("[OK] DESTIN8 API started - database tables created.")
+        # Safe migrations for existing DB instances
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN itinerary TEXT DEFAULT '[]'"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN suspension_reason TEXT"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN is_takedown BOOLEAN DEFAULT 0"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN takedown_reason TEXT"))
+        except Exception:
+            pass
+    print("[OK] DESTIN8 API started - database tables created and migrated.")
 
 
 @app.get("/", tags=["Health"])

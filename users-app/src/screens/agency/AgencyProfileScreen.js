@@ -7,12 +7,12 @@ import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-export default function TravelerProfileScreen({ navigation }) {
+export default function AgencyProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
 
   const getInitials = (name) => {
-    if (!name) return 'AH';
+    if (!name) return 'OT';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -20,16 +20,17 @@ export default function TravelerProfileScreen({ navigation }) {
     return parts[0].slice(0, 2).toUpperCase();
   };
 
-  const name = user?.name || 'Ahmed Hassan';
-  const email = user?.email || 'ahmed.hassan@voyage.com';
+  const name = user?.name || 'Odyssey Travels';
+  const email = user?.email || 'contact@odysseytravels.com';
   const initials = getInitials(name);
 
   const MENU = [
-    { icon: 'person', label: 'Edit Profile', onPress: () => {} },
-    { icon: 'notifications', label: 'Notifications', onPress: () => {} },
-    { icon: 'lock', label: 'Privacy & Security', onPress: () => {} },
-    { icon: 'help', label: 'Help & Support', onPress: () => {} },
-    { icon: 'description', label: 'Terms of Service', onPress: () => {} },
+    { icon: 'business', label: 'Company Profile', onPress: () => {} },
+    { icon: 'card-travel', label: 'Manage Packages', onPress: () => navigation.navigate('Packages') },
+    { icon: 'chat', label: 'Messages & Inquiries', onPress: () => navigation.navigate('Chat') },
+    { icon: 'star', label: 'Customer Reviews', onPress: () => {} },
+    { icon: 'lock', label: 'Privacy & Credentials', onPress: () => {} },
+    { icon: 'description', label: 'Terms of Partnership', onPress: () => {} },
   ];
 
   return (
@@ -62,23 +63,23 @@ export default function TravelerProfileScreen({ navigation }) {
           
           {/* Role Chip */}
           <View style={styles.roleChip}>
-            <Text style={styles.roleText}>TRAVELER</Text>
+            <Text style={styles.roleText}>VERIFIED AGENCY</Text>
           </View>
         </LinearGradient>
 
         {/* Stats Grid */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statVal}>12</Text>
-            <Text style={styles.statLabel} numberOfLines={2}>Trips Planned</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statVal}>24</Text>
-            <Text style={styles.statLabel} numberOfLines={2}>Saved Packages</Text>
-          </View>
-          <View style={styles.statCard}>
             <Text style={styles.statVal}>8</Text>
-            <Text style={styles.statLabel} numberOfLines={2}>Reviews Given</Text>
+            <Text style={styles.statLabel} numberOfLines={2}>Active Packages</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statVal}>42</Text>
+            <Text style={styles.statLabel} numberOfLines={2}>Bookings Managed</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statVal}>4.9</Text>
+            <Text style={styles.statLabel} numberOfLines={2}>Agency Rating</Text>
           </View>
         </View>
 
@@ -92,7 +93,7 @@ export default function TravelerProfileScreen({ navigation }) {
               onPress={item.onPress}
             >
               <View style={styles.menuLeft}>
-                <MaterialIcons name={item.icon} size={22} color="#52396f" style={{ backgroundColor: 'transparent' }} />
+                <MaterialIcons name={item.icon} size={22} color="#967BB6" style={{ backgroundColor: 'transparent' }} />
                 <Text style={styles.menuLabel}>{item.label}</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#7b757f" style={{ backgroundColor: 'transparent' }} />
@@ -164,6 +165,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#191c1d',
     marginBottom: 6,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   email: {
     fontFamily: 'Manrope_400Regular',
@@ -172,7 +175,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   roleChip: {
-    backgroundColor: 'rgba(82, 57, 111, 0.1)',
+    backgroundColor: 'rgba(150, 123, 182, 0.12)',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 9999,
@@ -180,7 +183,7 @@ const styles = StyleSheet.create({
   roleText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 12,
-    color: '#52396f',
+    color: '#967BB6',
     letterSpacing: 1.2,
   },
   statsRow: {
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
   statVal: {
     fontFamily: 'Epilogue_700Bold',
     fontSize: 24,
-    color: '#52396f',
+    color: '#967BB6',
     marginBottom: 4,
   },
   statLabel: {

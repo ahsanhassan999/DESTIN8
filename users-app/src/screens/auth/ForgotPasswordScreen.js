@@ -40,7 +40,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         {/* Header Bar */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
-            <MaterialIcons name="arrow-back" size={24} color={C.primary} />
+            <MaterialIcons name="arrow-back" size={24} color={C.primary} style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
           <Text style={s.logo}>DESTIN8</Text>
           <View style={{ width: 40 }} />
@@ -70,7 +70,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 <View style={s.field}>
                   <Text style={s.label}>EMAIL ADDRESS</Text>
                   <View style={s.inputWrap}>
-                    <MaterialIcons name="mail" size={20} color="rgba(89, 92, 93, 0.7)" style={s.inputIcon} />
+                    <MaterialIcons name="mail" size={20} color="rgba(89, 92, 93, 0.7)" style={[s.inputIcon, { backgroundColor: 'transparent' }]} />
                     <TextInput
                       style={s.input}
                       placeholder="nomad@destin8.com"
@@ -95,7 +95,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                     ) : (
                       <View style={s.btnInner}>
                         <Text style={s.btnText}>Send Instructions</Text>
-                        <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                        <MaterialIcons name="arrow-forward" size={20} color="#fff" style={{ backgroundColor: 'transparent' }} />
                       </View>
                     )}
                   </LinearGradient>
@@ -112,7 +112,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                   >
                     <View style={s.btnInner}>
                       <Text style={s.btnText}>Back to Sign In</Text>
-                      <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                      <MaterialIcons name="arrow-forward" size={20} color="#fff" style={{ backgroundColor: 'transparent' }} />
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -125,7 +125,7 @@ export default function ForgotPasswordScreen({ navigation }) {
               style={s.backLink}
               activeOpacity={0.7}
             >
-              <MaterialIcons name="keyboard-backspace" size={16} color={C.onSurfVar} />
+              <MaterialIcons name="keyboard-backspace" size={16} color={C.onSurfVar} style={{ backgroundColor: 'transparent' }} />
               <Text style={s.backLinkTxt}>Back to Sign In</Text>
             </TouchableOpacity>
 
@@ -227,7 +227,7 @@ const s = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: '#ffffff',
     borderRadius: 24,
     padding: 24,
     gap: 32,
@@ -254,7 +254,7 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   inputIcon: { marginRight: 10 },
-  input: { fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurf, flex: 1, padding: 0 },
+  input: { fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurf, flex: 1, padding: 0, backgroundColor: 'transparent' },
 
   // Button
   btn: {

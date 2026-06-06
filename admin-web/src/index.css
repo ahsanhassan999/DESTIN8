@@ -311,3 +311,93 @@ tbody td { padding: 13px 16px; font-size: 13.5px; color: var(--color-text); vert
 @keyframes slideLeft { from { transform: translateX(24px); opacity:0 } to { transform: translateX(0); opacity:1 } }
 @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 .spinner { width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+/* Details Modal Styles */
+.details-modal {
+  max-width: 580px;
+  width: 90%;
+}
+.details-section {
+  margin-bottom: 24px;
+}
+.details-section-title {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1.5px solid var(--color-surface-dim);
+  padding-bottom: 6px;
+}
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 24px;
+}
+.details-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.details-grid-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.details-grid-value {
+  font-size: 13.5px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+.details-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.details-stat-card {
+  background: var(--color-lavender-dim);
+  border: 1.5px solid var(--color-lavender-light);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  text-align: center;
+}
+.details-stat-val {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-plum);
+}
+.details-stat-lbl {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.details-list-item {
+  background: var(--color-surface-low);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.details-list-item-name {
+  font-weight: 600;
+}
+.details-list-item-meta {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}

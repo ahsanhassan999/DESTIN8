@@ -29,11 +29,7 @@ export default function ChatDetailScreen({ route, navigation }) {
   const displayInitials = isAgency ? (conversation.travelerInitials || conversation.initials) : getPackageInitials(conversation.package);
   const displaySub = isAgency ? conversation.package : 'Destination Inquiry';
 
-  const [messages, setMessages] = useState([
-    { id: '1', text: `Hi, I'm interested in the ${conversation.package}.`, isMe: false, time: '10:00 AM' },
-    { id: '2', text: 'Great! I can help you with that. What questions do you have?', isMe: true, time: '10:02 AM' },
-    { id: '3', text: conversation.lastMsg || 'Is there a group discount?', isMe: false, time: '10:05 AM' },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const scrollViewRef = useRef();
 
@@ -97,12 +93,12 @@ export default function ChatDetailScreen({ route, navigation }) {
       {/* Header */}
       <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialIcons name="arrow-back" size={24} color={primaryColor} />
+          <MaterialIcons name="arrow-back" size={24} color={primaryColor} style={{ backgroundColor: 'transparent' }} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{displayName}</Text>
           <View style={styles.headerSubRow}>
-            <MaterialIcons name="inventory" size={12} color={primaryColor} style={{ marginRight: 4, marginTop: 1 }} />
+            <MaterialIcons name="inventory" size={12} color={primaryColor} style={{ marginRight: 4, marginTop: 1, backgroundColor: 'transparent' }} />
             <Text style={[styles.headerSub, { color: primaryColor }]} numberOfLines={1}>{displaySub}</Text>
           </View>
         </View>
@@ -158,7 +154,7 @@ export default function ChatDetailScreen({ route, navigation }) {
             style={[styles.sendBtn, { backgroundColor: primaryColor }]}
             activeOpacity={0.8}
           >
-            <MaterialIcons name="send" size={20} color="#fff" />
+            <MaterialIcons name="send" size={20} color="#fff" style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
         </View>
       </Animated.View>

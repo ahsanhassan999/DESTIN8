@@ -243,7 +243,7 @@ const s = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: '#ffffff',
     borderRadius: 24,
     padding: 28,
     gap: 20,
@@ -268,7 +268,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
   },
   ico: { marginRight: 10 },
-  input: { fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurf, flex: 1, padding: 0 },
+  input: { fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurf, flex: 1, padding: 0, backgroundColor: 'transparent' },
   eyeBtn: { padding: 4 },
 
   utils: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

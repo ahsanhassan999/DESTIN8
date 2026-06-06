@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,8 +13,38 @@ const getPackageDays = (pkg) => {
     return pkg.days;
   }
   
+  if (pkg.itinerary) {
+    try {
+      const parsed = typeof pkg.itinerary === 'string' ? JSON.parse(pkg.itinerary) : pkg.itinerary;
+      if (parsed && parsed.length > 0) {
+        return parsed.map((d, i) => ({
+          id: d.id || i + 1,
+          title: d.title || `Day ${i + 1}`,
+          desc: d.desc || d.description || '',
+          accommodation: d.accommodation || '',
+          location: d.location || '',
+          transport: d.transport || [],
+        }));
+      }
+    } catch (_) {}
+  }
+  
   const destLower = (pkg.destination || '').toLowerCase();
   const titleLower = (pkg.title || '').toLowerCase();
+  
+  const isMock = (
+    destLower.includes('peru') || titleLower.includes('inca') ||
+    destLower.includes('zermatt') || destLower.includes('swiss') || destLower.includes('ch') || titleLower.includes('alpine') ||
+    destLower.includes('lisbon') || destLower.includes('portugal') ||
+    destLower.includes('istanbul') || destLower.includes('turkey') ||
+    destLower.includes('london') || destLower.includes('uk') ||
+    destLower.includes('hunza') || titleLower.includes('autumn splendor') || titleLower.includes('autumn') ||
+    titleLower.includes('k2 base camp') || titleLower.includes('swat valley') || titleLower.includes('maldives luxury') || titleLower.includes('fairy meadows')
+  );
+
+  if (!isMock) {
+    return [];
+  }
   
   if (destLower.includes('peru') || titleLower.includes('inca')) {
     return [
@@ -174,14 +206,79 @@ const getPackageDays = (pkg) => {
 export default function PackageDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const pkg = route.params?.package || {};
+  const [fullPkg, setFullPkg] = useState(pkg);
+  const { user } = useAuth();
+  const isTraveler = user?.role === 'traveler';
   const [wishlisted, setWishlisted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState(1);
 
+  useEffect(() => {
+    if (!pkg.id) return;
+    let active = true;
+    const fetchDetails = async () => {
+      try {
+        const data = await api.getPackage(pkg.id);
+        if (active && data) {
+          setFullPkg(prev => ({
+            ...prev,
+            ...data,
+            duration: `${data.duration_days} Days`,
+            price: data.price < 10000 ? `$${data.price}` : `PKR ${data.price.toLocaleString()}`,
+            img: data.cover_image || prev.img,
+            agency: data.agency_name || prev.agency,
+            inclusions: (() => { try { return JSON.parse(data.included_services || '[]'); } catch { return []; } })(),
+            itinerary: data.itinerary || '[]',
+            imageUrls: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : (data.cover_image ? [data.cover_image] : (prev.imageUrls || []))
+          }));
+        }
+      } catch (err) {
+        console.error('Error loading full package details:', err);
+      }
+    };
+    fetchDetails();
+    return () => { active = false; };
+  }, [pkg.id]);
+
+  useEffect(() => {
+    if (!isTraveler || !fullPkg.id) return;
+    const checkWishlist = async () => {
+      try {
+        const list = await api.getWishlist();
+        const isSaved = list.some(item => item.id === fullPkg.id);
+        setWishlisted(isSaved);
+      } catch (err) {
+        console.error('Error checking wishlist:', err);
+      }
+    };
+    checkWishlist();
+  }, [fullPkg.id, isTraveler]);
+
+  const toggleWishlist = async () => {
+    if (!isTraveler) return;
+    try {
+      if (wishlisted) {
+        await api.removeFromWishlist(fullPkg.id);
+        setWishlisted(false);
+      } else {
+        await api.addToWishlist(fullPkg.id);
+        setWishlisted(true);
+      }
+    } catch (err) {
+      console.error('Error toggling wishlist:', err);
+    }
+  };
+
   const scrollRef = React.useRef(null);
   const dayRefs = React.useRef({});
 
-  const daysData = getPackageDays(pkg);
+  const daysData = getPackageDays(fullPkg);
+
+  useEffect(() => {
+    if (daysData && daysData.length > 0 && !daysData.some(d => d.id === selectedDayId)) {
+      setSelectedDayId(daysData[0].id);
+    }
+  }, [daysData, selectedDayId]);
 
   const onScroll = (event) => {
     const slideSize = event.nativeEvent.layoutMeasurement.width;
@@ -207,15 +304,35 @@ export default function PackageDetailScreen({ navigation, route }) {
   const selectedDayIndex = daysData.findIndex(d => d.id === selectedDayId);
 
   // Dynamic fallbacks to support custom user packages and match the exact HTML designs
-  const image = pkg.img || pkg.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
-  const images = (pkg.imageUrls && pkg.imageUrls.length > 0) ? pkg.imageUrls : [image];
-  const title = pkg.title || 'Autumn Splendor Expedition';
-  const agencyName = pkg.agency || 'Odyssey Travels';
-  const duration = pkg.duration || '7 Days';
-  const price = pkg.price || 'PKR 45,000';
-  const destination = pkg.destination || 'HUNZA, PAKISTAN';
-  const description = pkg.description || 'Experience the breathtaking transformation of the Hunza Valley as it turns into a vibrant tapestry of gold and crimson. This curated expedition offers an exclusive retreat into the Karakoram range, blending architectural discovery with high-altitude serenity. From private orchard walks to stays in historic stone retreats, every moment is designed for the discerning traveler seeking profound beauty.';
-  const inclusions = pkg.inclusions || ['Luxury Accommodation', 'Gourmet Organic Meals', 'Private 4x4 Transport', 'Professional Historian Guide'];
+  const image = fullPkg.img || fullPkg.image || fullPkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
+  const images = (fullPkg.imageUrls && fullPkg.imageUrls.length > 0) ? fullPkg.imageUrls : [image];
+  const title = fullPkg.title || 'Autumn Splendor Expedition';
+  const agencyName = fullPkg.agency || fullPkg.agency_name || 'Odyssey Travels';
+  const duration = fullPkg.duration || (fullPkg.duration_days ? `${fullPkg.duration_days} Days` : '7 Days');
+  const price = fullPkg.price ? (typeof fullPkg.price === 'number' ? `PKR ${fullPkg.price.toLocaleString()}` : fullPkg.price) : 'PKR 45,000';
+  const destination = fullPkg.destination || 'HUNZA, PAKISTAN';
+  const description = fullPkg.description || 'Experience the breathtaking transformation of the Hunza Valley as it turns into a vibrant tapestry of gold and crimson. This curated expedition offers an exclusive retreat into the Karakoram range, blending architectural discovery with high-altitude serenity. From private orchard walks to stays in historic stone retreats, every moment is designed for the discerning traveler seeking profound beauty.';
+
+  const isMockPkg = (fullPkg.title && (
+    fullPkg.title.toLowerCase().includes('autumn splendor') ||
+    fullPkg.title.toLowerCase().includes('hunza valley') ||
+    fullPkg.title.toLowerCase().includes('k2 base camp') ||
+    fullPkg.title.toLowerCase().includes('swat valley') ||
+    fullPkg.title.toLowerCase().includes('maldives luxury') ||
+    fullPkg.title.toLowerCase().includes('fairy meadows')
+  ));
+
+  let inclusions = [];
+  if (fullPkg.inclusions && Array.isArray(fullPkg.inclusions) && fullPkg.inclusions.length > 0) {
+    inclusions = fullPkg.inclusions;
+  } else if (fullPkg.included_services) {
+    try {
+      inclusions = typeof fullPkg.included_services === 'string' ? JSON.parse(fullPkg.included_services) : fullPkg.included_services;
+    } catch (_) {}
+  }
+  if ((!inclusions || inclusions.length === 0) && isMockPkg) {
+    inclusions = ['Luxury Accommodation', 'Gourmet Organic Meals', 'Private 4x4 Transport', 'Professional Historian Guide'];
+  }
 
   return (
     <View style={styles.container}>
@@ -264,17 +381,19 @@ export default function PackageDetailScreen({ navigation, route }) {
             >
               <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.glassBtn}
-              onPress={() => setWishlisted(!wishlisted)}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons
-                name={wishlisted ? 'favorite' : 'favorite-border'}
-                size={24}
-                color={wishlisted ? '#ba1a1a' : '#ffffff'}
-              />
-            </TouchableOpacity>
+            {isTraveler && (
+              <TouchableOpacity
+                style={styles.glassBtn}
+                onPress={toggleWishlist}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons
+                  name={wishlisted ? 'favorite' : 'favorite-border'}
+                  size={24}
+                  color={wishlisted ? '#ba1a1a' : '#ffffff'}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -315,187 +434,211 @@ export default function PackageDetailScreen({ navigation, route }) {
           </View>
 
           {/* Journey Route Map (Interactive Bento Card) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Journey Route Map</Text>
-            <View style={styles.mapCard}>
-              <View style={styles.mapHeader}>
-                <View style={styles.mapTitleRow}>
-                  <MaterialIcons name="explore" size={20} color="#52396f" />
-                  <Text style={styles.mapCardTitle}>Interactive Landmark Trace</Text>
+          {daysData && daysData.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Journey Route Map</Text>
+              <View style={styles.mapCard}>
+                <View style={styles.mapHeader}>
+                  <View style={styles.mapTitleRow}>
+                    <MaterialIcons name="explore" size={20} color="#52396f" />
+                    <Text style={styles.mapCardTitle}>Interactive Landmark Trace</Text>
+                  </View>
+                  <Text style={styles.mapSubTitle}>Tap landmarks to view daily schedules</Text>
                 </View>
-                <Text style={styles.mapSubTitle}>Tap landmarks to view daily schedules</Text>
-              </View>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.mapNodesScroll}
-              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.mapNodesScroll}
+                >
+                  {daysData.map((day, idx) => {
+                    const isSelected = selectedDayId === day.id;
+                    return (
+                      <View key={day.id} style={styles.mapNodeWrapper}>
+                        {idx > 0 && (
+                          <View
+                            style={[
+                              styles.mapLine,
+                              idx <= selectedDayIndex ? styles.mapLineActive : styles.mapLineInactive,
+                            ]}
+                          />
+                        )}
+
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => handleSelectDay(day.id, idx)}
+                          style={styles.mapNodeTouch}
+                        >
+                          <View
+                            style={[
+                              styles.mapNodeCircle,
+                              isSelected && styles.mapNodeCircleActive,
+                            ]}
+                          >
+                            <MaterialIcons
+                              name={isSelected ? "place" : "location-on"}
+                              size={isSelected ? 18 : 14}
+                              color={isSelected ? '#ffffff' : '#52396f'}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.mapNodeText,
+                              isSelected && styles.mapNodeTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {day.location || `Day ${idx + 1}`}
+                          </Text>
+                          <Text style={styles.mapNodeDayLabel}>Day {idx + 1}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Day-by-Day Itinerary Vertical Section */}
+          {daysData && daysData.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Detailed Itinerary</Text>
+              <View style={styles.itineraryTimeline}>
                 {daysData.map((day, idx) => {
                   const isSelected = selectedDayId === day.id;
                   return (
-                    <View key={day.id} style={styles.mapNodeWrapper}>
-                      {idx > 0 && (
-                        <View
-                          style={[
-                            styles.mapLine,
-                            idx <= selectedDayIndex ? styles.mapLineActive : styles.mapLineInactive,
-                          ]}
-                        />
+                    <View
+                      key={day.id}
+                      ref={(el) => (dayRefs.current[day.id] = el)}
+                      style={styles.itineraryDayWrapper}
+                    >
+                      {/* Vertical line indicator */}
+                      {idx < daysData.length - 1 && (
+                        <View style={styles.timelineVerticalLine} />
                       )}
 
+                      {/* Timeline Node Icon/Dot */}
+                      <View style={[
+                        styles.timelineDot,
+                        isSelected && styles.timelineDotActive
+                      ]}>
+                        <Text style={[
+                          styles.timelineDotText,
+                          isSelected && styles.timelineDotTextActive
+                        ]}>{idx + 1}</Text>
+                      </View>
+
+                      {/* Bento Card */}
                       <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => handleSelectDay(day.id, idx)}
-                        style={styles.mapNodeTouch}
+                        activeOpacity={0.9}
+                        onPress={() => setSelectedDayId(day.id)}
+                        style={[
+                          styles.itineraryCard,
+                          isSelected && styles.itineraryCardActive
+                        ]}
                       >
-                        <View
-                          style={[
-                            styles.mapNodeCircle,
-                            isSelected && styles.mapNodeCircleActive,
-                          ]}
-                        >
-                          <MaterialIcons
-                            name={isSelected ? "place" : "location-on"}
-                            size={isSelected ? 18 : 14}
-                            color={isSelected ? '#ffffff' : '#52396f'}
-                          />
+                        <Text style={styles.itineraryDayHeader}>DAY {idx + 1}</Text>
+                        <Text style={styles.itineraryDayTitle}>{day.title || `Day ${idx + 1}`}</Text>
+                        <Text style={styles.itineraryDayDesc}>{day.desc}</Text>
+
+                        {/* Day Metadata (Accommodation / Location) */}
+                        <View style={styles.itineraryMetaContainer}>
+                          {day.accommodation ? (
+                            <View style={styles.itineraryMetaChip}>
+                              <MaterialIcons name="hotel" size={14} color="#52396f" />
+                              <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
+                                {day.accommodation}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {day.location ? (
+                            <View style={styles.itineraryMetaChip}>
+                              <MaterialIcons name="place" size={14} color="#52396f" />
+                              <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
+                                {day.location}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
-                        <Text
-                          style={[
-                            styles.mapNodeText,
-                            isSelected && styles.mapNodeTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {day.location || `Day ${idx + 1}`}
-                        </Text>
-                        <Text style={styles.mapNodeDayLabel}>Day {idx + 1}</Text>
+
+                        {day.transport && day.transport.length > 0 ? (
+                          <View style={styles.itineraryTransportRow}>
+                            <Text style={styles.itineraryTransportTitle}>Transport:</Text>
+                            <View style={styles.itineraryTransportChips}>
+                              {day.transport.map((trsp, tIdx) => (
+                                <View key={tIdx} style={styles.transportMiniChip}>
+                                 <MaterialIcons
+                                    name={
+                                      trsp.toLowerCase().includes('flight') ? 'flight' :
+                                      trsp.toLowerCase().includes('yacht') || trsp.toLowerCase().includes('boat') ? 'directions-boat' :
+                                      trsp.toLowerCase().includes('train') ? 'train' : 'directions-car'
+                                    }
+                                    size={12}
+                                    color="#967BB6"
+                                  />
+                                  <Text style={styles.transportMiniLabel}>{trsp}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ) : null}
                       </TouchableOpacity>
                     </View>
                   );
                 })}
-              </ScrollView>
+              </View>
             </View>
-          </View>
-
-          {/* Day-by-Day Itinerary Vertical Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Detailed Itinerary</Text>
-            <View style={styles.itineraryTimeline}>
-              {daysData.map((day, idx) => {
-                const isSelected = selectedDayId === day.id;
-                return (
-                  <View
-                    key={day.id}
-                    ref={(el) => (dayRefs.current[day.id] = el)}
-                    style={styles.itineraryDayWrapper}
-                  >
-                    {/* Vertical line indicator */}
-                    {idx < daysData.length - 1 && (
-                      <View style={styles.timelineVerticalLine} />
-                    )}
-
-                    {/* Timeline Node Icon/Dot */}
-                    <View style={[
-                      styles.timelineDot,
-                      isSelected && styles.timelineDotActive
-                    ]}>
-                      <Text style={[
-                        styles.timelineDotText,
-                        isSelected && styles.timelineDotTextActive
-                      ]}>{idx + 1}</Text>
-                    </View>
-
-                    {/* Bento Card */}
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={() => setSelectedDayId(day.id)}
-                      style={[
-                        styles.itineraryCard,
-                        isSelected && styles.itineraryCardActive
-                      ]}
-                    >
-                      <Text style={styles.itineraryDayHeader}>DAY {idx + 1}</Text>
-                      <Text style={styles.itineraryDayTitle}>{day.title || `Day ${idx + 1}`}</Text>
-                      <Text style={styles.itineraryDayDesc}>{day.desc}</Text>
-
-                      {/* Day Metadata (Accommodation / Location) */}
-                      <View style={styles.itineraryMetaContainer}>
-                        {day.accommodation ? (
-                          <View style={styles.itineraryMetaChip}>
-                            <MaterialIcons name="hotel" size={14} color="#52396f" />
-                            <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
-                              {day.accommodation}
-                            </Text>
-                          </View>
-                        ) : null}
-
-                        {day.location ? (
-                          <View style={styles.itineraryMetaChip}>
-                            <MaterialIcons name="place" size={14} color="#52396f" />
-                            <Text style={styles.itineraryMetaLabel} numberOfLines={1}>
-                              {day.location}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {day.transport && day.transport.length > 0 ? (
-                        <View style={styles.itineraryTransportRow}>
-                          <Text style={styles.itineraryTransportTitle}>Transport:</Text>
-                          <View style={styles.itineraryTransportChips}>
-                            {day.transport.map((trsp, tIdx) => (
-                              <View key={tIdx} style={styles.transportMiniChip}>
-                               <MaterialIcons
-                                  name={
-                                    trsp.toLowerCase().includes('flight') ? 'flight' :
-                                    trsp.toLowerCase().includes('yacht') || trsp.toLowerCase().includes('boat') ? 'directions-boat' :
-                                    trsp.toLowerCase().includes('train') ? 'train' : 'directions-car'
-                                  }
-                                  size={12}
-                                  color="#967BB6"
-                                />
-                                <Text style={styles.transportMiniLabel}>{trsp}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
+          ) : null}
 
           {/* Inclusions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What's Included</Text>
-            <View style={styles.inclusionsGrid}>
-              {inclusions.map((inc, index) => (
-                <View key={index} style={styles.inclusionCard}>
-                  <View style={styles.checkWrap}>
-                    <MaterialIcons name="check-circle" size={18} color="#52396f" />
+          {inclusions && inclusions.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>What's Included</Text>
+              <View style={styles.inclusionsGrid}>
+                {inclusions.map((inc, index) => (
+                  <View key={index} style={styles.inclusionCard}>
+                    <View style={styles.checkWrap}>
+                      <MaterialIcons name="check-circle" size={18} color="#52396f" />
+                    </View>
+                    <Text style={styles.inclusionText}>{inc}</Text>
                   </View>
-                  <Text style={styles.inclusionText}>{inc}</Text>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {/* Agency Profile Card */}
           <View style={styles.agencyCard}>
             <View style={styles.agencyCardLeft}>
-              <View style={styles.agencyLogoWrap}>
-                <Image
-                  source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCO_vPmNe2XQwno3QVmaOZ-7udhLHCkNLy2oQKJ2zNVW6y70Lx-weUO67_9UvVL6EY7-P-YJoRsbTOSFWss5sPmauzQGtlNcjIYQiA6tCjITiQT5nAsA1fn9ZkCbgRx3O5DYaYnfFhX5nxAvB8X5XaJ1dFdGPrr39JFyvaGH1IySQw-GUo9hkvjIC3bCJzX9W7KRyTzTBphsIsO5NkznQyUTJlhh7bgh01a2FRJolZ6fn4WgA_kvx1CbZ61AFViKlw3l_xaJD55ZrFM' }}
-                  style={styles.agencyLogo}
-                />
-              </View>
+              {agencyName.toLowerCase().includes('odyssey') ? (
+                <View style={styles.agencyLogoWrap}>
+                  <Image
+                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCO_vPmNe2XQwno3QVmaOZ-7udhLHCkNLy2oQKJ2zNVW6y70Lx-weUO67_9UvVL6EY7-P-YJoRsbTOSFWss5sPmauzQGtlNcjIYQiA6tCjITiQT5nAsA1fn9ZkCbgRx3O5DYaYnfFhX5nxAvB8X5XaJ1dFdGPrr39JFyvaGH1IySQw-GUo9hkvjIC3bCJzX9W7KRyTzTBphsIsO5NkznQyUTJlhh7bgh01a2FRJolZ6fn4WgA_kvx1CbZ61AFViKlw3l_xaJD55ZrFM' }}
+                    style={styles.agencyLogo}
+                  />
+                </View>
+              ) : (
+                <View style={[styles.agencyLogoWrap, { backgroundColor: (() => {
+                  let hash = 0;
+                  for (let i = 0; i < agencyName.length; i++) {
+                    hash = agencyName.charCodeAt(i) + ((hash << 5) - hash);
+                  }
+                  const colors = ['#967BB6', '#52396f', '#6A5188', '#B29CCF', '#7b2cbf', '#9d4edd', '#c77dff'];
+                  const index = Math.abs(hash) % colors.length;
+                  return colors[index];
+                })() }]}>
+                  <Text style={{ color: '#ffffff', fontFamily: 'Epilogue_700Bold', fontSize: 24 }}>
+                    {agencyName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.agencyCardMeta}>
                 <Text style={styles.agencyCardTitle}>{agencyName}</Text>
-                <Text style={styles.agencyCardSub}>Premier High-Altitude Specialist</Text>
+                <Text style={styles.agencyCardSub}>
+                  {agencyName.toLowerCase().includes('odyssey') ? 'Premier High-Altitude Specialist' : 'Verified Platform Partner'}
+                </Text>
               </View>
             </View>
             <TouchableOpacity style={styles.viewProfileBtn} activeOpacity={0.8}>
@@ -726,9 +869,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(106, 81, 136, 0.25)',
+    shadowColor: '#6A5188',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.25,
     shadowRadius: 30,
     elevation: 6,
   },
@@ -896,7 +1039,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    backgroundColor: 'rgba(150, 123, 182, 0.02)',
+    backgroundColor: '#F8F6FC',
   },
   itineraryDayHeader: {
     fontFamily: 'Manrope_700Bold',

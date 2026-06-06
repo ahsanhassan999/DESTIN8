@@ -32,6 +32,7 @@ class User(Base):
     status: Mapped[UserStatus] = mapped_column(SAEnum(UserStatus), default=UserStatus.active)
     profile_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    suspension_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -40,6 +41,7 @@ class User(Base):
     packages: Mapped[list["Package"]] = relationship("Package", back_populates="agency", foreign_keys="Package.agency_id")
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="user")
     wishlist: Mapped[list["Wishlist"]] = relationship("Wishlist", back_populates="user")
+    bookings: Mapped[list["Booking"]] = relationship("Booking", back_populates="traveler", foreign_keys="Booking.traveler_id")
 
 
 class AgencyProfile(Base):
@@ -73,6 +75,9 @@ class Package(Base):
     cover_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     departure_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_takedown: Mapped[bool] = mapped_column(Boolean, default=False)
+    takedown_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    itinerary: Mapped[str] = mapped_column(Text, default="[]")  # JSON string
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -80,6 +85,7 @@ class Package(Base):
     agency: Mapped["User"] = relationship("User", back_populates="packages", foreign_keys=[agency_id])
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="package")
     wishlist: Mapped[list["Wishlist"]] = relationship("Wishlist", back_populates="package")
+    bookings: Mapped[list["Booking"]] = relationship("Booking", back_populates="package")
 
 
 class Review(Base):
@@ -108,3 +114,28 @@ class Wishlist(Base):
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="wishlist")
     package: Mapped["Package"] = relationship("Package", back_populates="wishlist")
+
+
+class BookingStatus(str, enum.Enum):
+    pending = "pending"
+    confirmed = "confirmed"
+    cancelled = "cancelled"
+    completed = "completed"
+
+
+class Booking(Base):
+    __tablename__ = "bookings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    traveler_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    package_id: Mapped[str] = mapped_column(String(36), ForeignKey("packages.id"))
+    status: Mapped[BookingStatus] = mapped_column(SAEnum(BookingStatus), default=BookingStatus.pending)
+    num_travelers: Mapped[int] = mapped_column(Integer, default=1)
+    travel_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    traveler: Mapped["User"] = relationship("User", back_populates="bookings", foreign_keys=[traveler_id])
+    package: Mapped["Package"] = relationship("Package", back_populates="bookings")

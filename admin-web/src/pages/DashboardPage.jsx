@@ -1,4 +1,6 @@
-import { mockStats, mockRecentActivity, mockAgencies } from '../mockData';
+import { useState, useEffect } from 'react';
+import { mockRecentActivity } from '../mockData';
+import { api } from '../services/api';
 import './DashboardPage.css';
 
 const ACTIVITY_ICONS = {
@@ -11,7 +13,41 @@ const ACTIVITY_ICONS = {
 };
 
 export default function DashboardPage() {
-  const pendingAgencies = mockAgencies.filter(a => a.status === 'pending');
+  const [stats, setStats] = useState({
+    total_travelers: 0,
+    total_agencies: 0,
+    approved_agencies: 0,
+    pending_agencies: 0,
+    total_packages: 0,
+    active_packages: 0,
+  });
+  const [pendingAgencies, setPendingAgencies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const statsData = await api.getStats();
+        setStats(statsData);
+
+        const agenciesData = await api.getAgencies("pending");
+        setPendingAgencies(agenciesData);
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', color: 'var(--color-text-muted)' }}>
+        <div className="spinner" style={{ width: 40, height: 40, border: '4px solid var(--color-surface-hover)', borderTopColor: 'var(--color-plum)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">
@@ -21,34 +57,34 @@ export default function DashboardPage() {
           icon={<UsersIcon />}
           iconColor="blue"
           label="Total Travelers"
-          value={mockStats.totalTravelers.toLocaleString()}
-          trend="+24 this week"
+          value={stats.total_travelers.toLocaleString()}
+          trend="Real-time count"
           trendUp
         />
         <StatCard
           icon={<AgencyIcon />}
           iconColor="plum"
           label="Total Agencies"
-          value={mockStats.totalAgencies}
-          trend={`${mockStats.approvedAgencies} approved`}
+          value={stats.total_agencies}
+          trend={`${stats.approved_agencies} approved`}
           trendUp
         />
         <StatCard
           icon={<PackageIcon />}
           iconColor="green"
           label="Active Packages"
-          value={mockStats.activePackages}
-          trend={`${mockStats.totalPackages} total`}
+          value={stats.active_packages}
+          trend={`${stats.total_packages} total`}
           trendUp
         />
         <StatCard
           icon={<ClockIcon />}
           iconColor="orange"
           label="Pending Approvals"
-          value={mockStats.pendingAgencies}
+          value={stats.pending_agencies}
           trend="Needs review"
           trendUp={false}
-          alert
+          alert={stats.pending_agencies > 0}
         />
       </div>
 
@@ -87,9 +123,9 @@ export default function DashboardPage() {
               <h2 className="card-title">Agency Breakdown</h2>
             </div>
             <div className="breakdown-list">
-              <BreakdownRow label="Approved" value={mockStats.approvedAgencies} total={mockStats.totalAgencies} color="green" />
-              <BreakdownRow label="Pending"  value={mockStats.pendingAgencies}  total={mockStats.totalAgencies} color="orange" />
-              <BreakdownRow label="Rejected" value={mockStats.rejectedAgencies} total={mockStats.totalAgencies} color="red" />
+              <BreakdownRow label="Approved" value={stats.approved_agencies} total={stats.total_agencies} color="green" />
+              <BreakdownRow label="Pending"  value={stats.pending_agencies}  total={stats.total_agencies} color="orange" />
+              <BreakdownRow label="Rejected" value={stats.total_agencies - stats.approved_agencies - stats.pending_agencies} total={stats.total_agencies} color="red" />
             </div>
           </div>
 
@@ -100,16 +136,18 @@ export default function DashboardPage() {
               <span className="badge badge-pending">{pendingAgencies.length} pending</span>
             </div>
             <div className="pending-list">
-              {pendingAgencies.map(a => (
+              {pendingAgencies.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-muted)', fontSize: 14 }}>No pending agencies.</div>
+              ) : pendingAgencies.map(a => (
                 <div key={a.id} className="pending-item">
                   <div className="avatar avatar-sm avatar-plum">
                     {a.name.charAt(0)}
                   </div>
                   <div className="pending-info">
                     <span className="pending-name">{a.name}</span>
-                    <span className="pending-owner">{a.owner}</span>
+                    <span className="pending-owner">{a.agency_profile?.owner_name || '—'}</span>
                   </div>
-                  <span className="pending-date">{a.joined}</span>
+                  <span className="pending-date">{a.created_at ? a.created_at.split(' ')[0] : '—'}</span>
                 </div>
               ))}
             </div>
@@ -137,7 +175,7 @@ function StatCard({ icon, iconColor, label, value, trend, trendUp, alert }) {
 }
 
 function BreakdownRow({ label, value, total, color }) {
-  const pct = Math.round((value / total) * 100);
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div className="breakdown-row">
       <div className="breakdown-header">

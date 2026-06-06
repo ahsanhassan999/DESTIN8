@@ -11,11 +11,13 @@ import {
   ActivityIndicator,
   Image,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../services/api';
 
 const C = {
   primary: '#967BB6',       // Lavender primary
@@ -50,7 +52,7 @@ const CustomSwitch = ({ value, onValueChange }) => {
   );
 };
 
-export default function PostPackageScreen({ navigation }) {
+export default function PostPackageScreen({ navigation, route }) {
   // Form States
   const [destination, setDestination] = useState('');
   const [title, setTitle] = useState('');
@@ -116,6 +118,69 @@ export default function PostPackageScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  const editingPackage = route.params?.package;
+
+  React.useEffect(() => {
+    if (editingPackage) {
+      setDestination(editingPackage.destination || '');
+      setTitle(editingPackage.title || '');
+      setDescription(editingPackage.description || '');
+      setPrice(String(editingPackage.price || ''));
+      
+      const dur = editingPackage.duration_days || 1;
+      if (['3', '5', '7', '14'].includes(String(dur))) {
+        setDurationMode(String(dur));
+        setCustomDuration('');
+      } else {
+        setDurationMode('Custom');
+        setCustomDuration(String(dur));
+      }
+      
+      let parsedServices = [];
+      try {
+        parsedServices = typeof editingPackage.included_services === 'string' 
+          ? JSON.parse(editingPackage.included_services || '[]')
+          : (editingPackage.included_services || []);
+      } catch (_) {}
+      if (parsedServices && parsedServices.length > 0) {
+        setServices(parsedServices);
+      }
+      
+      if (editingPackage.cover_image) {
+        setImageUrls([editingPackage.cover_image]);
+      } else {
+        setImageUrls([]);
+      }
+      
+      let parsedItinerary = [];
+      try {
+        parsedItinerary = typeof editingPackage.itinerary === 'string'
+          ? JSON.parse(editingPackage.itinerary || '[]')
+          : (editingPackage.itinerary || []);
+      } catch (_) {}
+      if (parsedItinerary && parsedItinerary.length > 0) {
+        setDays(parsedItinerary);
+      }
+      
+      if (editingPackage.inclusions) setInclusions(editingPackage.inclusions);
+      if (editingPackage.exclusions) setExclusions(editingPackage.exclusions);
+      if (editingPackage.cancellation_policy) setCancellationPolicy(editingPackage.cancellation_policy);
+      if (editingPackage.deposit_enabled !== undefined) setDepositEnabled(editingPackage.deposit_enabled);
+      if (editingPackage.min_group) setMinGroup(String(editingPackage.min_group));
+      if (editingPackage.max_group) setMaxGroup(String(editingPackage.max_group));
+      if (editingPackage.start_point) setStartPoint(editingPackage.start_point);
+      if (editingPackage.meal_plan) setMealPlan(editingPackage.meal_plan);
+      if (editingPackage.languages) {
+        try {
+          const parsedLangs = typeof editingPackage.languages === 'string'
+            ? JSON.parse(editingPackage.languages || '[]')
+            : editingPackage.languages;
+          setLanguages(parsedLangs);
+        } catch (_) {}
+      }
+    }
+  }, [editingPackage]);
 
   // Refs for auto-scrolling
   const scrollRef = React.useRef(null);
@@ -261,6 +326,7 @@ export default function PostPackageScreen({ navigation }) {
 
   // Check for saved draft on mount
   React.useEffect(() => {
+    if (editingPackage) return;
     const checkDraft = async () => {
       try {
         const savedDraft = await AsyncStorage.getItem('destin8_package_draft');
@@ -277,7 +343,7 @@ export default function PostPackageScreen({ navigation }) {
       }
     };
     checkDraft();
-  }, []);
+  }, [editingPackage]);
 
   const resumeDraft = () => {
     if (draftData) {
@@ -325,6 +391,7 @@ export default function PostPackageScreen({ navigation }) {
 
   // Auto-save useEffect with debouncer
   React.useEffect(() => {
+    if (editingPackage) return;
     const saveDraft = async () => {
       if (showResumeModal) return;
 
@@ -394,6 +461,7 @@ export default function PostPackageScreen({ navigation }) {
     mealPlan,
     languages,
     showResumeModal,
+    editingPackage,
   ]);
 
   // Toggle Services
@@ -463,32 +531,87 @@ export default function PostPackageScreen({ navigation }) {
 
   // Submit flow
   const handleAction = async (status) => {
-    setLoading(true);
-    setSuccess(false);
-    await new Promise((r) => setTimeout(r, 1200));
-    
-    try {
-      await AsyncStorage.removeItem('destin8_package_draft');
-    } catch (err) {
-      console.log('Error clearing draft:', err);
+    // Validate required fields
+    if (!title.trim() || !destination.trim() || !price.trim()) {
+      setSuccessMessage('Please fill in Destination, Title, and Price before submitting.');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+      return;
     }
 
-    setLoading(false);
-    setSuccessMessage(
-      status === 'Publish'
-        ? 'Package published successfully!'
-        : 'Package saved as draft!'
-    );
-    setSuccess(true);
-    setTimeout(() => {
-      setSuccess(false);
-      navigation.goBack();
-    }, 1800);
+    const isPublish = status === 'Publish';
+
+    if (isPublish && editingPackage?.is_takedown) {
+      Alert.alert(
+        "Action Blocked",
+        `This package has been taken down by the administrator.\n\nReason: ${editingPackage.takedown_reason || 'No reason provided.'}\n\nPlease open a support ticket to resolve this.`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setLoading(true);
+    setSuccess(false);
+
+    const duration = durationMode === 'Custom' ? parseInt(customDuration, 10) || 1 : parseInt(durationMode, 10);
+
+    try {
+      if (editingPackage) {
+        await api.updatePackage(editingPackage.id, {
+          title: title.trim(),
+          destination: destination.trim(),
+          price: price.trim(),
+          duration,
+          description: description.trim(),
+          includedServices: services,
+          imageUrls,
+          departureDate: null,
+          is_active: isPublish,
+          itinerary: days,
+        });
+      } else {
+        await api.createPackage({
+          title: title.trim(),
+          destination: destination.trim(),
+          price: price.trim(),
+          duration,
+          description: description.trim(),
+          includedServices: services,
+          imageUrls,
+          departureDate: null,
+          is_active: isPublish,
+          itinerary: days,
+        });
+      }
+
+      // Clear draft from local storage
+      try {
+        await AsyncStorage.removeItem('destin8_package_draft');
+      } catch (_) {}
+
+      setLoading(false);
+      setSuccessMessage(
+        editingPackage
+          ? (isPublish ? 'Package updated and published!' : 'Package updated successfully!')
+          : (isPublish ? 'Package published successfully!' : 'Package saved as draft!')
+      );
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        navigation.goBack();
+      }, 1800);
+    } catch (err) {
+      setLoading(false);
+      const errMsg = err?.message || 'Failed to submit package. Please try again.';
+      setSuccessMessage(errMsg);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Post Package" showBack navigation={navigation} />
+      <AppHeader title={editingPackage ? "Edit Package" : "Post Package"} showBack navigation={navigation} />
 
       {/* Asymmetrical Background Elements */}
       <View style={styles.bgOrb1} pointerEvents="none" />
@@ -1454,6 +1577,7 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 10,
+    backgroundColor: 'transparent',
   },
   input: {
     fontFamily: 'Manrope_500Medium',
@@ -1462,6 +1586,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 0,
     height: '100%',
+    backgroundColor: 'transparent',
   },
   textArea: {
     backgroundColor: C.surfLow,

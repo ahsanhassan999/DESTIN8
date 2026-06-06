@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const C = {
   primary: '#967BB6',       // Lavender primary
@@ -27,6 +28,7 @@ const C = {
 };
 
 export default function AgencySignUpScreen({ navigation }) {
+  const { registerAgency } = useAuth();
   // Form states
   const [agencyName, setAgencyName] = useState('');
   const [license, setLicense] = useState('');
@@ -119,9 +121,25 @@ export default function AgencySignUpScreen({ navigation }) {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    const res = await registerAgency({
+      agencyName,
+      ownerName,
+      email,
+      password,
+      confirmPassword: confirm,
+      phone,
+      businessAddress: address,
+      licenseNumber: license,
+    });
     setLoading(false);
-    navigation.replace('AgencyPending');
+    
+    if (res.success) {
+      if (res.pending) {
+        navigation.replace('AgencyPending');
+      }
+    } else {
+      setError(res.error || 'Failed to create agency account.');
+    }
   };
 
   return (
@@ -137,7 +155,7 @@ export default function AgencySignUpScreen({ navigation }) {
             style={styles.backBtn}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="arrow-back" size={24} color={C.primary} />
+            <MaterialIcons name="arrow-back" size={24} color={C.primary} style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
           <Text style={styles.logo}>DESTIN8</Text>
           <View style={{ width: 40 }} />
@@ -188,7 +206,7 @@ export default function AgencySignUpScreen({ navigation }) {
                   name="verified-user"
                   size={28}
                   color={C.primary}
-                  style={{ marginBottom: 6 }}
+                  style={{ marginBottom: 6, backgroundColor: 'transparent' }}
                 />
                 <Text style={styles.floatingCardTitle}>
                   Global Verification Standards
@@ -205,6 +223,7 @@ export default function AgencySignUpScreen({ navigation }) {
                     name="error-outline"
                     size={16}
                     color={C.error}
+                    style={{ backgroundColor: 'transparent' }}
                   />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
@@ -218,6 +237,7 @@ export default function AgencySignUpScreen({ navigation }) {
                       name="business-center"
                       size={24}
                       color={C.primary}
+                      style={{ backgroundColor: 'transparent' }}
                     />
                   </View>
                   <Text style={styles.sectionTitle}>Agency Identity</Text>
@@ -299,7 +319,7 @@ export default function AgencySignUpScreen({ navigation }) {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionIconWrap}>
-                    <MaterialIcons name="person" size={24} color={C.primary} />
+                    <MaterialIcons name="person" size={24} color={C.primary} style={{ backgroundColor: 'transparent' }} />
                   </View>
                   <Text style={styles.sectionTitle}>Owner Profile</Text>
                 </View>
@@ -342,7 +362,7 @@ export default function AgencySignUpScreen({ navigation }) {
                         name="phone-android"
                         size={20}
                         color={C.primary}
-                        style={styles.inputRightIcon}
+                        style={[styles.inputRightIcon, { backgroundColor: 'transparent' }]}
                       />
                     </View>
                   </View>
@@ -353,7 +373,7 @@ export default function AgencySignUpScreen({ navigation }) {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionIconWrap}>
-                    <MaterialIcons name="lock" size={24} color={C.primary} />
+                    <MaterialIcons name="lock" size={24} color={C.primary} style={{ backgroundColor: 'transparent' }} />
                   </View>
                   <Text style={styles.sectionTitle}>Security Access</Text>
                 </View>
@@ -383,6 +403,7 @@ export default function AgencySignUpScreen({ navigation }) {
                           name={showPass ? 'visibility-off' : 'visibility'}
                           size={20}
                           color={C.onSurfVar}
+                          style={{ backgroundColor: 'transparent' }}
                         />
                       </TouchableOpacity>
                     </View>
@@ -422,7 +443,7 @@ export default function AgencySignUpScreen({ navigation }) {
                       }
                       size={14}
                       color={hasEightChars ? C.primary : C.onSurfVar}
-                      style={styles.pillIcon}
+                      style={[styles.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text
                       style={[
@@ -446,7 +467,7 @@ export default function AgencySignUpScreen({ navigation }) {
                       }
                       size={14}
                       color={hasUppercase ? C.primary : C.onSurfVar}
-                      style={styles.pillIcon}
+                      style={[styles.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text
                       style={[
@@ -470,7 +491,7 @@ export default function AgencySignUpScreen({ navigation }) {
                       }
                       size={14}
                       color={hasNumber ? C.primary : C.onSurfVar}
-                      style={styles.pillIcon}
+                      style={[styles.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text
                       style={[
@@ -496,7 +517,7 @@ export default function AgencySignUpScreen({ navigation }) {
                     name={agreed ? 'check-box' : 'check-box-outline-blank'}
                     size={24}
                     color={agreed ? C.primary : C.onSurfVar}
-                    style={styles.checkboxIcon}
+                    style={[styles.checkboxIcon, { backgroundColor: 'transparent' }]}
                   />
                   <Text style={styles.checkboxText}>
                     I certify that the information provided is accurate and I
@@ -528,6 +549,7 @@ export default function AgencySignUpScreen({ navigation }) {
                           name="arrow-forward"
                           size={20}
                           color="#fff"
+                          style={{ backgroundColor: 'transparent' }}
                         />
                       </View>
                     )}
@@ -567,9 +589,9 @@ export default function AgencySignUpScreen({ navigation }) {
                   name="language"
                   size={18}
                   color={C.onSurfVar}
-                  style={{ marginRight: 16 }}
+                  style={{ marginRight: 16, backgroundColor: 'transparent' }}
                 />
-                <MaterialIcons name="share" size={18} color={C.onSurfVar} />
+                <MaterialIcons name="share" size={18} color={C.onSurfVar} style={{ backgroundColor: 'transparent' }} />
               </View>
             </View>
           </View>

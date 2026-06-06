@@ -30,6 +30,7 @@ import MyTripsScreen           from '../screens/traveler/MyTripsScreen';
 import AgencyDashboardScreen from '../screens/agency/AgencyDashboardScreen';
 import PostPackageScreen     from '../screens/agency/PostPackageScreen';
 import MyPackagesScreen      from '../screens/agency/MyPackagesScreen';
+import AgencyProfileScreen   from '../screens/agency/AgencyProfileScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -62,32 +63,7 @@ function AgencyPendingScreen({ navigation }) {
   );
 }
 
-function AgencyProfileScreen() {
-  const { user, logout } = useAuth();
-  return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient
-        colors={[Colors.plum, Colors.lavender]}
-        style={{ paddingTop: 60, paddingBottom: 40, paddingHorizontal: 24, alignItems: 'center', gap: 8 }}
-      >
-        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)', marginTop: 40 }}>
-          <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 28, color: '#fff' }}>{user?.initials || 'OT'}</Text>
-        </View>
-        <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 22, color: '#fff' }}>{user?.name || 'Odyssey Travels'}</Text>
-        <Text style={{ fontFamily: 'Manrope_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>{user?.email}</Text>
-        <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 14, paddingVertical: 5, borderRadius: 9999 }}>
-          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.8 }}>✓ Verified Agency</Text>
-        </View>
-      </LinearGradient>
-      <TouchableOpacity
-        onPress={async () => { await logout(); }}
-        style={{ margin: 24, backgroundColor: Colors.errorBg, borderRadius: 16, padding: 16, alignItems: 'center' }}
-      >
-        <Text style={{ fontFamily: 'Manrope_700Bold', color: Colors.error, fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 }}>🚪 Sign Out</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
+
 
 // ─── Custom Tab Bar ─────────────────────────────────────────────────────────
 

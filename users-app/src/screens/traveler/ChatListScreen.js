@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockConversations } from '../../store/mockData';
 import { useAuth } from '../../context/AuthContext';
 import AppHeader from '../../components/AppHeader';
 
@@ -34,8 +33,10 @@ export default function ChatListScreen({ navigation }) {
   const primaryColor = isAgency ? '#967BB6' : '#52396f';
   const primaryBgLight = isAgency ? 'rgba(150, 123, 182, 0.15)' : 'rgba(82, 57, 111, 0.08)';
 
-  // Filter conversations based on search query
-  const filteredConversations = mockConversations.filter((conv) => {
+  // Conversations will be loaded from backend when messaging API is ready
+  const conversations = [];
+
+  const filteredConversations = conversations.filter((conv) => {
     const query = searchQuery.toLowerCase();
     if (isAgency) {
       return (
@@ -44,7 +45,6 @@ export default function ChatListScreen({ navigation }) {
         conv.lastMsg.toLowerCase().includes(query)
       );
     } else {
-      // Traveler side - agency name is hidden, so search title matches package name
       return (
         conv.package.toLowerCase().includes(query) ||
         conv.lastMsg.toLowerCase().includes(query)
@@ -74,92 +74,83 @@ export default function ChatListScreen({ navigation }) {
 
         {/* Search Bar */}
         <View style={styles.searchWrap}>
-          <MaterialIcons name="search" size={22} color="#7b757f" style={styles.searchIcon} />
+          <MaterialIcons name="search" size={22} color="#7b757f" style={[styles.searchIcon, { backgroundColor: 'transparent' }]} />
           <TextInput
             style={[styles.searchInput, { backgroundColor: 'transparent' }]}
             placeholder="Search conversations..."
             placeholderTextColor="rgba(123, 117, 127, 0.6)"
+            underlineColorAndroid="transparent"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
         {/* Chat List */}
-        <View style={styles.list}>
-          {filteredConversations.map((conv) => {
-            const hasUnread = conv.unread > 0;
-            
-            // Role specific details
-            const displayName = isAgency ? conv.traveler : conv.package;
-            const displayInitials = isAgency ? conv.travelerInitials : getPackageInitials(conv.package);
-            
-            return (
-              <TouchableOpacity
-                key={conv.id}
-                style={[
-                  styles.card,
-                  hasUnread && [styles.cardUnread, { borderLeftColor: primaryColor }],
-                ]}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('ChatDetail', { conversation: conv })}
-              >
-                {/* Avatar */}
-                <View style={[styles.avatar, { backgroundColor: primaryBgLight }]}>
-                  <Text style={[styles.avatarText, { color: primaryColor, backgroundColor: 'transparent' }]}>{displayInitials}</Text>
-                </View>
-
-                {/* Body */}
-                <View style={[styles.cardBody, { backgroundColor: 'transparent' }]}>
-                  <View style={[styles.cardHeader, { backgroundColor: 'transparent' }]}>
-                    <Text
-                      style={[styles.cardName, hasUnread && styles.cardNameUnread, { backgroundColor: 'transparent' }]}
-                      numberOfLines={1}
-                    >
-                      {displayName}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.cardTime,
-                        hasUnread ? { color: primaryColor } : styles.cardTimeRead,
-                        { backgroundColor: 'transparent' }
-                      ]}
-                    >
-                      {conv.time}
+        {filteredConversations.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIconWrap, { backgroundColor: primaryBgLight }]}>
+              <MaterialIcons name="forum" size={40} color={primaryColor} style={{ backgroundColor: 'transparent' }} />
+            </View>
+            <Text style={styles.emptyTitle}>No conversations yet</Text>
+            <Text style={styles.emptyDesc}>
+              {isAgency
+                ? 'When travelers send you enquiries, their messages will appear here.'
+                : 'When you enquire about a package, your conversations with agencies will appear here.'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {filteredConversations.map((conv) => {
+              const hasUnread = conv.unread > 0;
+              const displayName = isAgency ? conv.traveler : conv.package;
+              const displayInitials = isAgency ? conv.travelerInitials : getPackageInitials(conv.package);
+              return (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={[
+                    styles.card,
+                    hasUnread && [styles.cardUnread, { borderLeftColor: primaryColor }],
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('ChatDetail', { conversation: conv })}
+                >
+                  <View style={[styles.avatar, { backgroundColor: primaryBgLight }]}>
+                    <Text style={[styles.avatarText, { color: primaryColor, backgroundColor: 'transparent' }]}>{displayInitials}</Text>
+                  </View>
+                  <View style={[styles.cardBody, { backgroundColor: 'transparent' }]}>
+                    <View style={[styles.cardHeader, { backgroundColor: 'transparent' }]}>
+                      <Text style={[styles.cardName, hasUnread && styles.cardNameUnread, { backgroundColor: 'transparent' }]} numberOfLines={1}>
+                        {displayName}
+                      </Text>
+                      <Text style={[styles.cardTime, hasUnread ? { color: primaryColor } : styles.cardTimeRead, { backgroundColor: 'transparent' }]}>
+                        {conv.time}
+                      </Text>
+                    </View>
+                    {isAgency && (
+                      <View style={[styles.tagRow, { backgroundColor: 'transparent' }]}>
+                        <View style={[styles.tagPill, { backgroundColor: '#e7e8e9' }]}>
+                          <Text style={[styles.tagText, { backgroundColor: 'transparent' }]}>{conv.package}</Text>
+                        </View>
+                      </View>
+                    )}
+                    <Text style={[styles.cardMsg, hasUnread && styles.cardMsgUnread, { backgroundColor: 'transparent' }]} numberOfLines={1}>
+                      {conv.lastMsg}
                     </Text>
                   </View>
-
-                  {/* Subtitle tag row (only visible on agency side since traveler title IS the package name) */}
-                  {isAgency && (
-                    <View style={[styles.tagRow, { backgroundColor: 'transparent' }]}>
-                      <View style={[styles.tagPill, { backgroundColor: '#e7e8e9' }]}>
-                        <Text style={[styles.tagText, { backgroundColor: 'transparent' }]}>{conv.package}</Text>
+                  <View style={[styles.rightColumn, { backgroundColor: 'transparent' }]}>
+                    {hasUnread ? (
+                      <View style={[styles.badge, { backgroundColor: primaryColor }]}>
+                        <Text style={[styles.badgeText, { backgroundColor: 'transparent' }]}>{conv.unread}</Text>
                       </View>
-                    </View>
-                  )}
-
-                  {/* Last message snippet */}
-                  <Text
-                    style={[styles.cardMsg, hasUnread && styles.cardMsgUnread, { backgroundColor: 'transparent' }]}
-                    numberOfLines={1}
-                  >
-                    {conv.lastMsg}
-                  </Text>
-                </View>
-
-                {/* Right side indicators */}
-                <View style={styles.rightColumn}>
-                  {hasUnread ? (
-                    <View style={[styles.badge, { backgroundColor: primaryColor }]}>
-                      <Text style={styles.badgeText}>{conv.unread}</Text>
-                    </View>
-                  ) : (
-                    <MaterialIcons name="done-all" size={16} color={primaryColor} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                    ) : (
+                      <MaterialIcons name="done-all" size={16} color={primaryColor} style={{ backgroundColor: 'transparent' }} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
         <View style={{ height: insets.bottom + 90 }} />
       </ScrollView>
     </View>
@@ -216,7 +207,7 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: '#ffffff',
     borderRadius: 32,
     height: 56,
     paddingHorizontal: 20,
@@ -246,16 +237,16 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     shadowColor: '#2C2F30',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
+    shadowRadius: 6,
     elevation: 1,
     borderWidth: 1,
     borderColor: 'rgba(150, 123, 182, 0.10)',
@@ -344,5 +335,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 10,
     color: '#ffffff',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 20,
+    color: '#191c1d',
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 14,
+    color: '#7b757f',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

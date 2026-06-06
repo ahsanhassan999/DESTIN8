@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, delete
 from typing import Optional
 
 from app.database import get_db
-from app.models import User, AgencyProfile, Package, UserRole, UserStatus
+from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking
 from app.schemas import (
     AgencyWithProfileResponse,
     AgencyProfileResponse,
     AgencyStatusUpdate,
     UserResponse,
     AdminCreateUserRequest,
+    UserSuspendRequest,
+    PackageTakedownRequest,
     StatsResponse,
 )
 from app.core.security import hash_password
@@ -132,6 +134,7 @@ async def list_users(
             "role": u.role.value,
             "status": u.status.value,
             "is_active": u.is_active,
+            "suspension_reason": u.suspension_reason,
             "created_at": str(u.created_at),
         }
         for u in users
@@ -141,6 +144,7 @@ async def list_users(
 @router.patch("/users/{user_id}/suspend")
 async def suspend_user(
     user_id: str,
+    data: UserSuspendRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user),
 ):
@@ -154,8 +158,9 @@ async def suspend_user(
 
     user.is_active = False
     user.status = UserStatus.suspended
+    user.suspension_reason = data.reason
     await db.commit()
-    return {"message": "User suspended."}
+    return {"message": "User suspended.", "suspension_reason": data.reason}
 
 
 @router.patch("/users/{user_id}/activate")
@@ -171,6 +176,7 @@ async def activate_user(
 
     user.is_active = True
     user.status = UserStatus.active if user.role != UserRole.agency else UserStatus.approved
+    user.suspension_reason = None
     await db.commit()
     return {"message": "User activated."}
 
@@ -185,16 +191,81 @@ async def create_admin_user(
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already in use.")
 
+    # Determine status
+    if data.role == "agency":
+        status = UserStatus.approved
+    else:
+        status = UserStatus.active
+
     user = User(
         name=data.name,
         email=data.email,
         hashed_password=hash_password(data.password),
-        role=UserRole.admin,
-        status=UserStatus.active,
+        phone=data.phone,
+        role=UserRole(data.role),
+        status=status,
     )
     db.add(user)
+    await db.flush()
+
+    if data.role == "agency":
+        profile = AgencyProfile(
+            user_id=user.id,
+            agency_name=data.name,
+            owner_name=data.owner_name or data.name,
+            business_address=data.business_address or "",
+            license_number=data.license_number or "",
+        )
+        db.add(profile)
+
     await db.commit()
-    return {"message": "Admin user created.", "id": user.id}
+    return {"message": f"{data.role.capitalize()} user created.", "id": user.id}
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account.")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Verification conditions
+    if user.status != UserStatus.suspended:
+        raise HTTPException(status_code=400, detail="Account must be suspended before deletion.")
+    if not user.suspension_reason or not user.suspension_reason.strip():
+        raise HTTPException(status_code=400, detail="Account must have a suspension reason to be deleted.")
+
+    # Cascade delete associated records
+    await db.execute(delete(Wishlist).where(Wishlist.user_id == user.id))
+    await db.execute(delete(Review).where(Review.user_id == user.id))
+    await db.execute(delete(Booking).where(Booking.traveler_id == user.id))
+
+    if user.role == UserRole.agency:
+        pkg_res = await db.execute(select(Package).where(Package.agency_id == user.id))
+        pkgs = pkg_res.scalars().all()
+        pkg_ids = [p.id for p in pkgs]
+        if pkg_ids:
+            await db.execute(delete(Booking).where(Booking.package_id.in_(pkg_ids)))
+            await db.execute(delete(Review).where(Review.package_id.in_(pkg_ids)))
+            await db.execute(delete(Wishlist).where(Wishlist.package_id.in_(pkg_ids)))
+            for p in pkgs:
+                await db.delete(p)
+
+        profile_res = await db.execute(select(AgencyProfile).where(AgencyProfile.user_id == user.id))
+        profile = profile_res.scalar_one_or_none()
+        if profile:
+            await db.delete(profile)
+
+    await db.delete(user)
+    await db.commit()
+    return {"message": "User account successfully deleted."}
 
 
 # ─── Package Moderation ───────────────────────────────────────────────────────
@@ -213,11 +284,19 @@ async def list_all_packages(
         agency = agency_result.scalar_one_or_none()
         output.append({
             "id": p.id,
+            "agency_id": p.agency_id,
             "title": p.title,
             "destination": p.destination,
             "price": p.price,
             "duration_days": p.duration_days,
+            "description": p.description,
+            "included_services": p.included_services,
+            "cover_image": p.cover_image,
+            "departure_date": p.departure_date,
             "is_active": p.is_active,
+            "is_takedown": p.is_takedown,
+            "takedown_reason": p.takedown_reason,
+            "itinerary": p.itinerary,
             "agency_name": agency.name if agency else "Unknown",
             "created_at": str(p.created_at),
         })
@@ -227,6 +306,7 @@ async def list_all_packages(
 @router.patch("/packages/{package_id}/takedown")
 async def takedown_package(
     package_id: str,
+    data: PackageTakedownRequest,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
@@ -235,6 +315,8 @@ async def takedown_package(
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
     pkg.is_active = False
+    pkg.is_takedown = True
+    pkg.takedown_reason = data.reason
     await db.commit()
     return {"message": "Package taken down."}
 
@@ -250,5 +332,8 @@ async def restore_package(
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
     pkg.is_active = True
+    pkg.is_takedown = False
+    pkg.takedown_reason = None
     await db.commit()
     return {"message": "Package restored."}
+

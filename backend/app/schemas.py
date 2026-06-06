@@ -83,6 +83,7 @@ class UserResponse(BaseModel):
     role: str
     status: str
     profile_image: Optional[str] = None
+    suspension_reason: Optional[str] = None
     created_at: str
 
     class Config:
@@ -130,11 +131,25 @@ class AgencyStatusUpdate(BaseModel):
     reason: Optional[str] = None
 
 
+class UserSuspendRequest(BaseModel):
+    reason: str
+
+
+class PackageTakedownRequest(BaseModel):
+    reason: str
+
+
 class AdminCreateUserRequest(BaseModel):
-    name: str
+    role: str  # "traveler", "agency", "admin"
     email: EmailStr
     password: str
-    role: str = "admin"
+    name: str  # Full name for traveler/admin, or Agency Name for agency
+    phone: Optional[str] = None
+
+    # Agency profile specific fields
+    owner_name: Optional[str] = None
+    business_address: Optional[str] = None
+    license_number: Optional[str] = None
 
 
 class StatsResponse(BaseModel):
@@ -157,6 +172,8 @@ class PackageCreateRequest(BaseModel):
     included_services: Optional[str] = "[]"  # JSON string
     cover_image: Optional[str] = None
     departure_date: Optional[str] = None
+    is_active: Optional[bool] = True
+    itinerary: Optional[str] = "[]"  # JSON string
 
 
 class PackageUpdateRequest(BaseModel):
@@ -168,6 +185,8 @@ class PackageUpdateRequest(BaseModel):
     included_services: Optional[str] = None
     cover_image: Optional[str] = None
     departure_date: Optional[str] = None
+    is_active: Optional[bool] = None
+    itinerary: Optional[str] = None
 
 
 class PackageResponse(BaseModel):
@@ -183,6 +202,9 @@ class PackageResponse(BaseModel):
     cover_image: Optional[str] = None
     departure_date: Optional[str] = None
     is_active: bool
+    itinerary: str = "[]"
+    is_takedown: bool = False
+    takedown_reason: Optional[str] = None
     created_at: str
     average_rating: Optional[float] = None
     review_count: int = 0

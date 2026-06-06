@@ -32,6 +32,9 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
         "cover_image": pkg.cover_image,
         "departure_date": pkg.departure_date,
         "is_active": pkg.is_active,
+        "itinerary": pkg.itinerary,
+        "is_takedown": pkg.is_takedown,
+        "takedown_reason": pkg.takedown_reason,
         "created_at": str(pkg.created_at),
         "average_rating": avg_rating,
         "review_count": review_count,
@@ -124,6 +127,8 @@ async def create_package(
         included_services=data.included_services or "[]",
         cover_image=data.cover_image,
         departure_date=data.departure_date,
+        is_active=data.is_active if data.is_active is not None else True,
+        itinerary=data.itinerary or "[]",
     )
     db.add(pkg)
     await db.commit()
@@ -153,6 +158,14 @@ async def update_package(
     if data.included_services is not None: pkg.included_services = data.included_services
     if data.cover_image is not None: pkg.cover_image = data.cover_image
     if data.departure_date is not None: pkg.departure_date = data.departure_date
+    if data.is_active is not None:
+        if data.is_active and pkg.is_takedown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This package has been taken down by the administrator. Reason: {pkg.takedown_reason or 'No reason provided'}. Please contact support."
+            )
+        pkg.is_active = data.is_active
+    if data.itinerary is not None: pkg.itinerary = data.itinerary
 
     await db.commit()
     await db.refresh(pkg)

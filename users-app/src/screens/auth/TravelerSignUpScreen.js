@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const C = {
   primary: '#967BB6',       // Lavender primary
@@ -25,6 +26,7 @@ const C = {
 };
 
 export default function TravelerSignUpScreen({ navigation }) {
+  const { registerTraveler } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -93,9 +95,11 @@ export default function TravelerSignUpScreen({ navigation }) {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
+    const res = await registerTraveler({ name, email, password, confirmPassword: confirm });
     setLoading(false);
-    navigation.navigate('Login');
+    if (!res.success) {
+      setError(res.error || 'Failed to create traveler account.');
+    }
   };
 
   return (
@@ -111,7 +115,7 @@ export default function TravelerSignUpScreen({ navigation }) {
             style={s.backBtn}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="arrow-back" size={24} color={C.primary} />
+            <MaterialIcons name="arrow-back" size={24} color={C.primary} style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
           <Text style={s.logo}>DESTIN8</Text>
           <View style={{ width: 40 }} />
@@ -134,7 +138,7 @@ export default function TravelerSignUpScreen({ navigation }) {
             {/* Header / Title */}
             <View style={s.hero}>
               <View style={s.stepTagRow}>
-                <MaterialIcons name="travel-explore" size={20} color={C.primary} />
+                <MaterialIcons name="travel-explore" size={20} color={C.primary} style={{ backgroundColor: 'transparent' }} />
                 <Text style={s.stepTag}>Start Your Journey</Text>
               </View>
               <Text style={s.title}>Create your account.</Text>
@@ -144,7 +148,7 @@ export default function TravelerSignUpScreen({ navigation }) {
             {/* Error Box */}
             {!!error && (
               <View style={s.errBox}>
-                <MaterialIcons name="error-outline" size={16} color={C.error} />
+                <MaterialIcons name="error-outline" size={16} color={C.error} style={{ backgroundColor: 'transparent' }} />
                 <Text style={s.errTxt}>{error}</Text>
               </View>
             )}
@@ -214,6 +218,7 @@ export default function TravelerSignUpScreen({ navigation }) {
                       name={showPass ? 'visibility-off' : 'visibility'}
                       size={20}
                       color={C.onSurfVar}
+                      style={{ backgroundColor: 'transparent' }}
                     />
                   </TouchableOpacity>
                 </View>
@@ -230,13 +235,13 @@ export default function TravelerSignUpScreen({ navigation }) {
                       name={hasEightChars ? 'check-circle' : 'radio-button-unchecked'}
                       size={14}
                       color={hasEightChars ? C.primary : C.onSurfVar}
-                      style={s.pillIcon}
+                      style={[s.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text style={[s.pillTxt, hasEightChars && s.pillTxtActive]}>
                       8+ CHARACTERS
                     </Text>
                   </View>
-
+ 
                   <View
                     style={[
                       s.pill,
@@ -247,13 +252,13 @@ export default function TravelerSignUpScreen({ navigation }) {
                       name={hasUppercase ? 'check-circle' : 'radio-button-unchecked'}
                       size={14}
                       color={hasUppercase ? C.primary : C.onSurfVar}
-                      style={s.pillIcon}
+                      style={[s.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text style={[s.pillTxt, hasUppercase && s.pillTxtActive]}>
                       1 UPPERCASE
                     </Text>
                   </View>
-
+ 
                   <View
                     style={[
                       s.pill,
@@ -264,7 +269,7 @@ export default function TravelerSignUpScreen({ navigation }) {
                       name={hasNumber ? 'check-circle' : 'radio-button-unchecked'}
                       size={14}
                       color={hasNumber ? C.primary : C.onSurfVar}
-                      style={s.pillIcon}
+                      style={[s.pillIcon, { backgroundColor: 'transparent' }]}
                     />
                     <Text style={[s.pillTxt, hasNumber && s.pillTxtActive]}>
                       1 NUMBER
@@ -304,7 +309,7 @@ export default function TravelerSignUpScreen({ navigation }) {
                 ) : (
                   <View style={s.btnInner}>
                     <Text style={s.btnText}>Create Account</Text>
-                    <MaterialIcons name="arrow-forward" size={18} color="#fff" />
+                    <MaterialIcons name="arrow-forward" size={18} color="#fff" style={{ backgroundColor: 'transparent' }} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -325,27 +330,27 @@ export default function TravelerSignUpScreen({ navigation }) {
                   name="help-outline"
                   size={18}
                   color={C.onSurfVar}
-                  style={s.footerIcon}
+                  style={[s.footerIcon, { backgroundColor: 'transparent' }]}
                 />
                 <Text style={s.footerLinkTxt}>Help Center</Text>
               </TouchableOpacity>
-
+ 
               <TouchableOpacity style={s.footerLink} activeOpacity={0.7}>
                 <MaterialIcons
                   name="description"
                   size={18}
                   color={C.onSurfVar}
-                  style={s.footerIcon}
+                  style={[s.footerIcon, { backgroundColor: 'transparent' }]}
                 />
                 <Text style={s.footerLinkTxt}>Terms</Text>
               </TouchableOpacity>
-
+ 
               <TouchableOpacity style={s.footerLink} activeOpacity={0.7}>
                 <MaterialIcons
                   name="security"
                   size={18}
                   color={C.onSurfVar}
-                  style={s.footerIcon}
+                  style={[s.footerIcon, { backgroundColor: 'transparent' }]}
                 />
                 <Text style={s.footerLinkTxt}>Privacy</Text>
               </TouchableOpacity>
@@ -505,6 +510,7 @@ const s = StyleSheet.create({
     flex: 1,
     height: '100%',
     padding: 0,
+    backgroundColor: 'transparent',
   },
   eyeBtn: {
     padding: 4,

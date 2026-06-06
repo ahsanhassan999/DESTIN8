@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,15 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
+import { api } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -48,55 +53,89 @@ const CustomSwitch = ({ value, onValueChange }) => {
 
 export default function MyPackagesScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [packages, setPackages] = useState([
-    {
-      id: '1',
-      title: 'Autumn Splendor Expedition',
-      tags: ['Adventure', 'Luxury'],
-      description: 'Experience the ethereal beauty of Hunza valley as it turns golden under the autumn sun. A curated high-altitude retreat.',
-      price: '45,000',
-      duration: '5',
-      status: 'Published',
-      imageUrls: [
-        'https://lh3.googleusercontent.com/aida/ADBb0uigouzg6XqCbiRm8DdvWkha3BTvxc-cQuf13paZdSSqs-_Q_k8tupor81o6BP3fP5ZZbg3NeFPP9zxX5Juu93UAHYrtiCRjTuLQs2yFx393Tj69XECdUYwISFgNoD6uFmDdENnwc48OoRLjpuXz8q4TpBrJFl3I0AljsPSKTnPrVXClBxMrwv-Hm_WuwZKBxcUtyrNsvs84nL2Kvth0D9Yv92-dSDUud0ZOeuVMOyeKv1s8HsWTmDaMIHQG',
-      ],
-    },
-    {
-      id: '2',
-      title: 'Coastal Serenity Getaway',
-      tags: ['Relaxation'],
-      description: 'Untouched beaches and crystal clear waters of Ormara. A minimal luxury escape for those seeking absolute silence.',
-      price: '28,500',
-      duration: '3',
-      status: 'Draft',
-      imageUrls: [
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuC_AXSD8dR4gKvzwZejbPVEV6AuIb3Z1CTV1Pp0RPE62Hif33zj43V_ObdAywd44nfM9c9EZ9cz1n0J-RJ6kxZiFi68pa2ldr7ngj255UTZk5mDLNWvcZtYOwQKnfKGhUFdMu1oPVwzkWCABlXaBx_379Ip64flB2bFasveKQRsObxz6dF0jZgOwWI06k_gZfbOV5tQH9TjeLytOdRMUWy15EmI9YAq6aej6Zb4I_MszxvUk01Ua7nkQIu81wxPYgPRGqw775hC1ItT',
-      ],
-    },
-  ]);
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const toggleStatus = (id) => {
-    setPackages((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          return {
-            ...p,
-            status: p.status === 'Published' ? 'Draft' : 'Published',
-          };
-        }
-        return p;
-      })
+  const loadPackages = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const data = await api.getMyPackages();
+      const normalized = data.map(p => ({
+        id: p.id,
+        title: p.title,
+        tags: (() => { try { return JSON.parse(p.included_services || '[]'); } catch { return ['Package']; } })(),
+        description: p.description,
+        price: p.price?.toLocaleString() || '0',
+        duration: String(p.duration_days || 1),
+        status: p.is_active ? 'Published' : 'Draft',
+        imageUrls: p.cover_image ? [p.cover_image] : [],
+        raw: p,
+      }));
+      setPackages(normalized);
+    } catch (err) {
+      console.error('Error loading packages:', err);
+      setPackages([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPackages(false);
+    }, [loadPackages])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadPackages(false);
+  }, [loadPackages]);
+
+  const toggleStatus = async (pkg) => {
+    const currentStatus = pkg.status;
+    const newIsActive = currentStatus !== 'Published';
+
+    if (newIsActive && pkg.raw?.is_takedown) {
+      Alert.alert(
+        "Action Blocked",
+        `This package has been taken down by the administrator.\n\nReason: ${pkg.raw.takedown_reason || 'No reason provided.'}\n\nPlease open a support ticket to resolve this.`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Optimistic update
+    setPackages(prev =>
+      prev.map(p => p.id === pkg.id ? { ...p, status: newIsActive ? 'Published' : 'Draft' } : p)
     );
+    try {
+      await api.updatePackage(pkg.id, { is_active: newIsActive });
+    } catch (err) {
+      console.error('Error toggling status:', err);
+      // Revert on failure
+      setPackages(prev =>
+        prev.map(p => p.id === pkg.id ? { ...p, status: currentStatus } : p)
+      );
+      Alert.alert("Error", err.message || "Failed to update package status.");
+    }
   };
 
-  const handleDelete = (id) => {
-    setPackages((prev) => prev.filter((p) => p.id !== id));
+  const handleDelete = async (id) => {
+    // Optimistic removal
+    setPackages(prev => prev.filter(p => p.id !== id));
+    try {
+      await api.deletePackage(id);
+    } catch (err) {
+      console.error('Error deleting package:', err);
+    }
   };
 
   const filteredPackages = packages.filter(
     (pkg) =>
       pkg.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pkg.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      (Array.isArray(pkg.tags) ? pkg.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) : false)
   );
 
   return (
@@ -110,6 +149,14 @@ export default function MyPackagesScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#967BB6']}
+            tintColor="#967BB6"
+          />
+        }
       >
         {/* Header Section */}
         <View style={styles.headerRow}>
@@ -121,16 +168,17 @@ export default function MyPackagesScreen({ navigation }) {
 
         {/* Search Bar */}
         <View style={styles.searchWrap}>
-          <MaterialIcons name="search" size={22} color={C.onSurfVar} style={styles.searchIcon} />
+          <MaterialIcons name="search" size={22} color={C.onSurfVar} style={[styles.searchIcon, { backgroundColor: 'transparent' }]} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { backgroundColor: 'transparent' }]}
             placeholder="Search your packages..."
             placeholderTextColor="rgba(89, 92, 93, 0.4)"
+            underlineColorAndroid="transparent"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity style={styles.tuneBtn} activeOpacity={0.7}>
-            <MaterialIcons name="tune" size={22} color={C.primary} />
+          <TouchableOpacity style={[styles.tuneBtn, { backgroundColor: 'transparent' }]} activeOpacity={0.7}>
+            <MaterialIcons name="tune" size={22} color={C.primary} style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
         </View>
 
@@ -144,9 +192,22 @@ export default function MyPackagesScreen({ navigation }) {
           <Text style={styles.postBtnTxt}>Post New Package</Text>
         </TouchableOpacity>
 
-        {/* Packages List */}
-        <View style={styles.list}>
-          {filteredPackages.map((pkg) => (
+        {/* Loading */}
+        {loading ? (
+          <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 48 }} />
+        ) : filteredPackages.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+            <MaterialIcons name="inventory-2" size={56} color="rgba(150,123,182,0.25)" />
+            <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 18, color: C.onSurf, marginTop: 16 }}>
+              {searchQuery ? 'No matches found' : 'No packages yet'}
+            </Text>
+            <Text style={{ fontFamily: 'Manrope_400Regular', fontSize: 14, color: C.onSurfVar, textAlign: 'center', marginTop: 8, paddingHorizontal: 32 }}>
+              {searchQuery ? 'Try a different title or tag.' : 'Tap "Post New Package" to create your first package.'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {filteredPackages.map((pkg) => (
             <View key={pkg.id} style={styles.card}>
               {/* Image Banner */}
               <View style={styles.imageContainer}>
@@ -161,7 +222,7 @@ export default function MyPackagesScreen({ navigation }) {
                 />
                 <View style={styles.imageOverlay}>
                   <View style={styles.tagsRow}>
-                    {pkg.tags.map((tag) => (
+                    {(Array.isArray(pkg.tags) ? pkg.tags : []).map((tag) => (
                       <View key={tag} style={styles.tagPill}>
                         <Text style={styles.tagText}>{tag}</Text>
                       </View>
@@ -178,11 +239,11 @@ export default function MyPackagesScreen({ navigation }) {
                 {/* Meta Rows */}
                 <View style={styles.metaRow}>
                   <View style={styles.metaChip}>
-                    <MaterialIcons name="payments" size={18} color={C.primary} />
+                    <MaterialIcons name="payments" size={18} color={C.primary} style={{ backgroundColor: 'transparent' }} />
                     <Text style={styles.metaText}>Rs. {pkg.price}</Text>
                   </View>
                   <View style={styles.metaChip}>
-                    <MaterialIcons name="schedule" size={18} color={C.primary} />
+                    <MaterialIcons name="schedule" size={18} color={C.primary} style={{ backgroundColor: 'transparent' }} />
                     <Text style={styles.metaText}>{pkg.duration} Days</Text>
                   </View>
                 </View>
@@ -195,28 +256,33 @@ export default function MyPackagesScreen({ navigation }) {
                   <View style={styles.statusWrap}>
                     <CustomSwitch
                       value={pkg.status === 'Published'}
-                      onValueChange={() => toggleStatus(pkg.id)}
+                    onValueChange={() => toggleStatus(pkg)}
                     />
                     <Text style={styles.statusLabel}>{pkg.status}</Text>
                   </View>
 
                   <View style={styles.iconsWrap}>
-                    <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-                      <MaterialIcons name="edit" size={20} color={C.onSurfVar} />
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('PostPackageForm', { package: pkg.raw })}
+                    >
+                      <MaterialIcons name="edit" size={20} color={C.onSurfVar} style={{ backgroundColor: 'transparent' }} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.iconBtn}
                       activeOpacity={0.7}
                       onPress={() => handleDelete(pkg.id)}
                     >
-                      <MaterialIcons name="delete" size={20} color={C.error} />
+                      <MaterialIcons name="delete" size={20} color={C.error} style={{ backgroundColor: 'transparent' }} />
                     </TouchableOpacity>
                   </View>
                 </View>
               </View>
             </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
         <View style={{ height: 120 }} />
       </ScrollView>
     </View>

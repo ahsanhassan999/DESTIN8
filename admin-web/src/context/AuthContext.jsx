@@ -1,15 +1,7 @@
 import { createContext, useContext, useState } from 'react';
+import { api } from '../services/api';
 
 const AuthContext = createContext(null);
-
-// Mock admin user for frontend-only mode
-const MOCK_ADMIN = {
-  id: 'admin-1',
-  name: 'DESTIN8 Admin',
-  email: 'admin@destin8.com',
-  role: 'admin',
-  initials: 'DA',
-};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -17,20 +9,34 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const login = (email, password) => {
-    // Mock auth — accept known credentials
-    if (email === 'admin@destin8.com' && password === 'Admin@123') {
-      localStorage.setItem('destin8_admin', JSON.stringify(MOCK_ADMIN));
-      setUser(MOCK_ADMIN);
-      return { success: true };
+  const login = async (email, password) => {
+    try {
+      const response = await api.login(email, password);
+      if (response && response.role === 'admin') {
+        const adminUser = {
+          id: response.user_id,
+          name: response.name,
+          email: email,
+          role: response.role,
+          initials: response.name ? response.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'AD',
+          access_token: response.access_token,
+        };
+        localStorage.setItem('destin8_admin', JSON.stringify(adminUser));
+        setUser(adminUser);
+        return { success: true };
+      } else {
+        return { success: false, error: 'Access denied: Admin role required.' };
+      }
+    } catch (err) {
+      return { success: false, error: err.message || 'Invalid email or password.' };
     }
-    return { success: false, error: 'Invalid email or password.' };
   };
 
   const logout = () => {
     localStorage.removeItem('destin8_admin');
     setUser(null);
   };
+
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>

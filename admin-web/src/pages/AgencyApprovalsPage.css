@@ -1,4 +1,4 @@
-.approvals-page { display: flex; flex-direction: column; }
+.approvals-page { display: flex; flex-direction: column; gap: 20px; }
 .expanded-row { background: var(--color-lavender-dim) !important; }
 .expanded-row:hover { background: var(--color-lavender-dim) !important; }
 .expanded-row td { padding: 0 !important; border-bottom: 2px solid var(--color-lavender-light); }
@@ -18,3 +18,4 @@
 .expanded-actions { display: flex; gap: 10px; align-items: flex-start; flex-shrink: 0; }
 .reject-form { display: flex; flex-direction: column; min-width: 280px; }
 .reject-form .form-input { font-size: 13px; padding: 8px 12px; }
+.approvals-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }

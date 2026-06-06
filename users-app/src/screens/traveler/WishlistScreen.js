@@ -1,34 +1,73 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, TextInput, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, TextInput, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { mockPackages, mockWishlist } from '../../store/mockData';
+import { useFocusEffect } from '@react-navigation/native';
+import { api } from '../../services/api';
 import { Colors } from '../../theme';
 import AppHeader from '../../components/AppHeader';
 
 const { width } = Dimensions.get('window');
 
 export default function WishlistScreen({ navigation }) {
-  const [wishlist, setWishlist] = useState(mockWishlist);
+  const [savedPackages, setSavedPackages] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Filter packages based on wishlist state
-  const saved = mockPackages.filter(p => wishlist.includes(p.id));
+  const loadWishlist = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const data = await api.getWishlist();
+      setSavedPackages(data);
+    } catch (err) {
+      console.error('Error loading wishlist:', err);
+      setSavedPackages([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-  const filteredSaved = saved.filter(pkg => 
-    pkg.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  useFocusEffect(
+    useCallback(() => {
+      loadWishlist(false);
+    }, [loadWishlist])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadWishlist(false);
+  }, [loadWishlist]);
+
+  const filteredSaved = savedPackages.filter(pkg =>
+    pkg.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pkg.destination.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleWishlist = (id) => {
-    setWishlist(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(x => x !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
+  const removeFromWishlist = async (pkgId) => {
+    try {
+      await api.removeFromWishlist(pkgId);
+      setSavedPackages(prev => prev.filter(p => p.id !== pkgId));
+    } catch (err) {
+      console.error('Error removing from wishlist:', err);
+    }
   };
+
+  const buildPackageForNav = (pkg) => ({
+    id: pkg.id,
+    title: pkg.title,
+    destination: pkg.destination,
+    duration: `${pkg.duration_days} Days`,
+    price: pkg.price < 10000 ? `$${pkg.price}` : `PKR ${pkg.price.toLocaleString()}`,
+    rating: pkg.average_rating ? pkg.average_rating.toFixed(1) : '4.8',
+    img: pkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15',
+    description: pkg.description,
+    inclusions: (() => { try { return JSON.parse(pkg.included_services || '[]'); } catch { return []; } })(),
+    itinerary: pkg.itinerary || '[]',
+    agency: pkg.agency_name || 'Odyssey Travels',
+    startDate: pkg.departure_date || 'Oct 12, 2026',
+  });
 
   return (
     <View style={styles.container}>
@@ -39,13 +78,24 @@ export default function WishlistScreen({ navigation }) {
       <View style={styles.bgOrb2} pointerEvents="none" />
       <View style={styles.bgOrb3} pointerEvents="none" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#52396f']}
+            tintColor="#52396f"
+          />
+        }
+      >
         {/* Page Title Section */}
         <View style={styles.headerSection}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>My Wishlist</Text>
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>{saved.length} saved</Text>
+              <Text style={styles.countText}>{savedPackages.length} saved</Text>
             </View>
           </View>
           <Text style={styles.subtitle}>Your saved travel dreams</Text>
@@ -53,26 +103,31 @@ export default function WishlistScreen({ navigation }) {
 
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={22} color="#7b757f" style={styles.searchIcon} />
+          <MaterialIcons name="search" size={22} color="#7b757f" style={[styles.searchIcon, { backgroundColor: 'transparent' }]} />
           <TextInput
             style={[styles.searchInput, { backgroundColor: 'transparent' }]}
             placeholder="Search saved packages..."
             placeholderTextColor="rgba(123, 117, 127, 0.6)"
+            underlineColorAndroid="transparent"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* Wishlist Content */}
-        {filteredSaved.length === 0 ? (
+        {/* Content */}
+        {loading ? (
           <View style={styles.emptyState}>
-            <MaterialIcons name="favorite-border" size={64} color="rgba(82, 57, 111, 0.2)" />
+            <ActivityIndicator size="large" color="#52396f" />
+          </View>
+        ) : filteredSaved.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="favorite-border" size={64} color="rgba(82, 57, 111, 0.2)" style={{ backgroundColor: 'transparent' }} />
             <Text style={styles.emptyTitle}>
               {searchQuery ? "No matches found" : "No saved trips yet"}
             </Text>
             <Text style={styles.emptyDesc}>
-              {searchQuery 
-                ? "Try searching for a different destination or package title." 
+              {searchQuery
+                ? "Try searching for a different destination or package title."
                 : "Tap the heart icon on any package to save it here."}
             </Text>
             {!searchQuery && (
@@ -92,28 +147,31 @@ export default function WishlistScreen({ navigation }) {
                 key={pkg.id}
                 style={styles.card}
                 activeOpacity={0.88}
-                onPress={() => navigation.navigate('PackageDetail', { package: pkg })}
+                onPress={() => navigation.navigate('PackageDetail', { package: buildPackageForNav(pkg) })}
               >
-                <Image source={{ uri: pkg.image }} style={styles.cardImg} />
-                
+                <Image
+                  source={{ uri: pkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15' }}
+                  style={styles.cardImg}
+                />
+
                 <View style={[styles.cardContent, { backgroundColor: 'transparent' }]}>
                   <Text style={[styles.cardTitle, { backgroundColor: 'transparent' }]} numberOfLines={1}>
                     {pkg.title}
                   </Text>
                   <Text style={[styles.cardMeta, { backgroundColor: 'transparent' }]} numberOfLines={1}>
-                    {pkg.destination} · {pkg.duration} Days
+                    {pkg.destination} · {pkg.duration_days} Days
                   </Text>
                   <Text style={[styles.cardPrice, { backgroundColor: 'transparent' }]}>
-                    ${pkg.price ? (pkg.price / 100).toFixed(0) : '1,250'}
+                    {pkg.price < 10000 ? `$${pkg.price}` : `PKR ${pkg.price?.toLocaleString()}`}
                   </Text>
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => toggleWishlist(pkg.id)}
-                  style={styles.removeBtn}
+                  onPress={() => removeFromWishlist(pkg.id)}
+                  style={[styles.removeBtn, { backgroundColor: 'transparent' }]}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="favorite" size={24} color="#ba1a1a" />
+                  <MaterialIcons name="favorite" size={24} color="#ba1a1a" style={{ backgroundColor: 'transparent' }} />
                 </TouchableOpacity>
               </TouchableOpacity>
             ))}
@@ -134,15 +192,19 @@ export default function WishlistScreen({ navigation }) {
               start={{ x: 0, y: 0.2 }}
               end={{ x: 0, y: 1 }}
             />
-            
+
             <View style={styles.suggestionContent}>
               <View style={styles.suggestionBadge}>
                 <Text style={styles.suggestionBadgeText}>Trending Gem</Text>
               </View>
               <Text style={styles.suggestionCardTitle}>Secret Lagoon Sanctuary</Text>
               <Text style={styles.suggestionCardSub}>Discover the untouched architecture of nature.</Text>
-              
-              <TouchableOpacity style={styles.viewDestBtn} activeOpacity={0.85}>
+
+              <TouchableOpacity
+                style={styles.viewDestBtn}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Explore')}
+              >
                 <Text style={styles.viewDestText}>View Destination</Text>
                 <MaterialIcons name="arrow-forward" size={16} color="#ffffff" />
               </TouchableOpacity>
@@ -215,7 +277,7 @@ const styles = StyleSheet.create({
     color: '#191c1d',
   },
   countBadge: {
-    backgroundColor: 'rgba(178, 156, 207, 0.2)', // lavender-light/20
+    backgroundColor: 'rgba(178, 156, 207, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 9999,
@@ -223,7 +285,7 @@ const styles = StyleSheet.create({
   countText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 12,
-    color: '#52396f', // primary
+    color: '#52396f',
   },
   subtitle: {
     fontFamily: 'Manrope_400Regular',
@@ -232,7 +294,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Empty State
+  // Empty / Loading State
   emptyState: {
     alignItems: 'center',
     paddingVertical: 64,
@@ -271,14 +333,14 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: 16,
     gap: 16,
     shadowColor: '#2C2F30',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 24,
+    shadowRadius: 6,
     elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(150, 123, 182, 0.10)',
@@ -386,9 +448,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 9999,
     gap: 8,
-    shadowColor: 'rgba(106, 81, 136, 0.25)',
+    shadowColor: '#6A5188',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.25,
     shadowRadius: 25,
     elevation: 4,
   },
@@ -398,24 +460,23 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.5,
   },
-  // Search Bar
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#ffffff',
     marginHorizontal: 24,
     marginBottom: 24,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 32,
+    height: 56,
+    paddingHorizontal: 20,
     gap: 10,
     shadowColor: '#2C2F30',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(150, 123, 182, 0.10)',
+    borderColor: 'rgba(150, 123, 182, 0.12)',
   },
   searchIcon: {
     marginRight: 4,

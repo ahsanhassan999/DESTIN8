@@ -25,7 +25,7 @@ export default function AppHeader({ title, showBack, navigation }) {
             style={styles.backBtn}
             activeOpacity={0.7}
           >
-            <MaterialIcons name="arrow-back" size={24} color={themeColor} />
+            <MaterialIcons name="arrow-back" size={24} color={themeColor} style={{ backgroundColor: 'transparent' }} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 40 }} />
