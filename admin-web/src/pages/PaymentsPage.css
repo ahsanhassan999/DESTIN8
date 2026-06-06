@@ -62,11 +62,20 @@
 }
 
 .pay-stat-icon {
-  font-size: 1.6rem;
-  line-height: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
 }
+
+.pay-stat-icon--blue   { background: #DBEAFE; color: #1D4ED8; }
+.pay-stat-icon--plum   { background: var(--color-lavender-light); color: var(--color-plum); }
+.pay-stat-icon--green  { background: var(--color-success-bg); color: var(--color-success); }
+.pay-stat-icon--orange { background: var(--color-warning-bg); color: var(--color-warning); }
+.pay-stat-icon--indigo { background: #E0E7FF; color: #4338CA; }
 
 .pay-stat-body {
   display: flex;

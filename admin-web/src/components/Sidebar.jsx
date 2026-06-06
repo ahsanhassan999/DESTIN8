@@ -27,7 +27,7 @@ const NAV = [
   {
     label: 'Communications',
     items: [
-      { to: '/chat', icon: IconChat, label: 'Chat Monitoring', soon: true },
+      { to: '/chat', icon: IconChat, label: 'Chat Monitoring' },
     ],
   },
   {

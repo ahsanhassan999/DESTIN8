@@ -164,7 +164,7 @@ export default function AgencyApprovalsPage() {
                         </div>
                       </div>
                     </td>
-                     <td>{agency.agency_profile?.owner_name || '—'}</td>
+                    <td>{agency.agency_profile?.owner_name || '—'}</td>
                     <td><code style={{ fontSize: 12, background: 'var(--color-surface-low)', padding: '2px 7px', borderRadius: 4 }}>{agency.agency_profile?.license_number || '—'}</code></td>
                     <td style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>{agency.created_at ? agency.created_at.split(' ')[0] : '—'}</td>
                     <td><span className={`badge badge-${agency.status}`}>{agency.status}</span></td>
@@ -234,7 +234,7 @@ export default function AgencyApprovalsPage() {
                 <XIcon />
               </button>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
               <div className="avatar avatar-lg avatar-plum">
                 {selectedAgencyForDetails.name.charAt(0)}
@@ -357,7 +357,7 @@ export default function AgencyApprovalsPage() {
 }
 
 function SearchIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
 }
 
 function DetailItem({ label, value, highlight }) {
@@ -373,13 +373,13 @@ function ChevronIcon({ expanded }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
       style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.2s ease', color: 'var(--color-text-faint)' }}>
-      <path d="m6 9 6 6 6-6"/>
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
 function CheckIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
 }
 function XIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 }

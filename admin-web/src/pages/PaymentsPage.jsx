@@ -27,39 +27,90 @@ const StatusBadge = ({ status, type = 'txn' }) => {
   return <span className={`pay-badge ${cfg.cls}`}>{cfg.label}</span>;
 };
 
+// ─── SVG Icons matching Dashboard Page styles ─────────────────────────────────
+function IconRevenue() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23"></line>
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+    </svg>
+  );
+}
+
+function IconDeposits() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect>
+      <line x1="2" y1="10" x2="22" y2="10"></line>
+    </svg>
+  );
+}
+
+function IconPayouts() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18M9 8h1m5 0h1M9 12h1m5 0h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/>
+    </svg>
+  );
+}
+
+function IconPending() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="12 6 12 12 16 14"></polyline>
+    </svg>
+  );
+}
+
+function IconTransactions() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"></line>
+      <line x1="12" y1="20" x2="12" y2="4"></line>
+      <line x1="6" y1="20" x2="6" y2="14"></line>
+    </svg>
+  );
+}
+
 // ─── Revenue Stats Cards ───────────────────────────────────────────────────────
 function RevenueCards({ stats, loading }) {
   const cards = [
     {
-      icon: '💰',
+      icon: <IconRevenue />,
+      iconColor: 'plum',
       label: 'Platform Revenue',
       value: fmt(stats.total_platform_revenue),
       sub: 'Total commissions earned',
-      accent: '#7c3aed',
+      accent: 'var(--color-plum)',
     },
     {
-      icon: '💳',
+      icon: <IconDeposits />,
+      iconColor: 'blue',
       label: 'Deposits Collected',
       value: fmt(stats.total_deposits_collected),
       sub: 'Paid by travelers',
       accent: '#0ea5e9',
     },
     {
-      icon: '🏦',
+      icon: <IconPayouts />,
+      iconColor: 'green',
       label: 'Agency Payouts Sent',
       value: fmt(stats.total_agency_payouts_sent),
       sub: 'Net paid to agencies',
-      accent: '#10b981',
+      accent: 'var(--color-success)',
     },
     {
-      icon: '⏳',
+      icon: <IconPending />,
+      iconColor: 'orange',
       label: 'Pending Payouts',
       value: fmt(stats.pending_payout_amount),
       sub: `${stats.pending_payout_count || 0} transactions pending`,
-      accent: '#f59e0b',
+      accent: 'var(--color-warning)',
     },
     {
-      icon: '📊',
+      icon: <IconTransactions />,
+      iconColor: 'indigo',
       label: 'Total Transactions',
       value: (stats.total_transactions || 0).toLocaleString(),
       sub: 'Successful payments',
@@ -71,7 +122,7 @@ function RevenueCards({ stats, loading }) {
     <div className="pay-cards-grid">
       {cards.map((c) => (
         <div key={c.label} className="pay-stat-card" style={{ '--accent': c.accent }}>
-          <div className="pay-stat-icon">{c.icon}</div>
+          <div className={`pay-stat-icon pay-stat-icon--${c.iconColor}`}>{c.icon}</div>
           <div className="pay-stat-body">
             <div className="pay-stat-value">{loading ? '—' : c.value}</div>
             <div className="pay-stat-label">{c.label}</div>
