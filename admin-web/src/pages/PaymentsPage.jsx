@@ -27,53 +27,55 @@ const StatusBadge = ({ status, type = 'txn' }) => {
   return <span className={`pay-badge ${cfg.cls}`}>{cfg.label}</span>;
 };
 
-// ─── SVG Icons matching Dashboard Page styles ─────────────────────────────────
+// ─── SVG Icons — same shapes as DashboardPage ────────────────────────────────
+// Revenue = dollar sign
 function IconRevenue() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="1" x2="12" y2="23"></line>
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23"/>
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
     </svg>
   );
 }
-
+// Deposits = credit card (same as Dashboard IconDeposits / pay rect style)
 function IconDeposits() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect>
-      <line x1="2" y1="10" x2="22" y2="10"></line>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <path d="M2 10h20"/>
+      <path d="M6 15h4"/><path d="M14 15h2"/>
     </svg>
   );
 }
-
+// Payouts = building (same as Dashboard AgencyIcon)
 function IconPayouts() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 21h18M9 8h1m5 0h1M9 12h1m5 0h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/>
     </svg>
   );
 }
-
+// Pending = clock (same as Dashboard ClockIcon)
 function IconPending() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"></circle>
-      <polyline points="12 6 12 12 16 14"></polyline>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
     </svg>
   );
 }
-
+// Transactions = bar chart
 function IconTransactions() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"></line>
-      <line x1="12" y1="20" x2="12" y2="4"></line>
-      <line x1="6" y1="20" x2="6" y2="14"></line>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/>
+      <line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
   );
 }
 
-// ─── Revenue Stats Cards ───────────────────────────────────────────────────────
+// ─── Revenue Stats Cards (using same stat-icon-* classes as DashboardPage) ─────
 function RevenueCards({ stats, loading }) {
   const cards = [
     {
@@ -122,10 +124,11 @@ function RevenueCards({ stats, loading }) {
     <div className="pay-cards-grid">
       {cards.map((c) => (
         <div key={c.label} className="pay-stat-card" style={{ '--accent': c.accent }}>
-          <div className={`pay-stat-icon pay-stat-icon--${c.iconColor}`}>{c.icon}</div>
+          {/* Use same stat-icon--* classes as DashboardPage for visual parity */}
+          <div className={`stat-icon stat-icon--${c.iconColor}`}>{c.icon}</div>
           <div className="pay-stat-body">
-            <div className="pay-stat-value">{loading ? '—' : c.value}</div>
             <div className="pay-stat-label">{c.label}</div>
+            <div className="stat-value" style={{ fontSize: '1.5rem', margin: '2px 0 0' }}>{loading ? '—' : c.value}</div>
             <div className="pay-stat-sub">{c.sub}</div>
           </div>
         </div>

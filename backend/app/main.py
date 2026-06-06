@@ -40,8 +40,30 @@ app.include_router(bookings.router)
 @app.on_event("startup")
 async def on_startup():
     from sqlalchemy import text
+    from datetime import datetime
+    from app.models import Conversation, Message, ChatTag, ConversationTagLink
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Seed default tags if they don't exist
+        try:
+            res = await conn.execute(text("SELECT COUNT(*) FROM chat_tags"))
+            if res.scalar() == 0:
+                import uuid
+                default_tags = [
+                    ("Suspicious Payment", "#EF4444"),
+                    ("Outside Booking", "#F59E0B"),
+                    ("Harassment", "#DC2626"),
+                    ("Refund Request", "#3B82F6"),
+                    ("General Enquiry", "#10B981")
+                ]
+                for name, color in default_tags:
+                    tag_id = str(uuid.uuid4())
+                    await conn.execute(
+                        text("INSERT INTO chat_tags (id, name, color, created_at) VALUES (:id, :name, :color, :created_at)"),
+                        {"id": tag_id, "name": name, "color": color, "created_at": datetime.utcnow()}
+                    )
+        except Exception as e:
+            print("Failed to seed default tags:", e)
         # Safe migrations for existing DB instances
         try:
             await conn.execute(text("ALTER TABLE packages ADD COLUMN itinerary TEXT DEFAULT '[]'"))

@@ -182,3 +182,58 @@ class PaymentTransaction(Base):
 
     # Relationships
     booking: Mapped["Booking"] = relationship("Booking")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    traveler_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    package_id: Mapped[str] = mapped_column(String(36), ForeignKey("packages.id"))
+    is_flagged: Mapped[bool] = mapped_column(Boolean, default=False)
+    flag_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    traveler: Mapped["User"] = relationship("User", foreign_keys=[traveler_id])
+    agency: Mapped["User"] = relationship("User", foreign_keys=[agency_id])
+    package: Mapped["Package"] = relationship("Package")
+    messages: Mapped[list["Message"]] = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+    tags: Mapped[list["ChatTag"]] = relationship("ChatTag", secondary="conversation_tag_links", back_populates="conversations")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"))
+    sender_role: Mapped[str] = mapped_column(String(20))  # "traveler" | "agency" | "system"
+    sender_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    text: Mapped[str] = mapped_column(Text)
+    is_warning: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="messages")
+    sender: Mapped["User | None"] = relationship("User")
+
+
+class ChatTag(Base):
+    __tablename__ = "chat_tags"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    color: Mapped[str] = mapped_column(String(20), default="#967BB6")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    conversations: Mapped[list["Conversation"]] = relationship("Conversation", secondary="conversation_tag_links", back_populates="tags")
+
+
+class ConversationTagLink(Base):
+    __tablename__ = "conversation_tag_links"
+
+    conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True)
+    tag_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_tags.id", ondelete="CASCADE"), primary_key=True)
