@@ -7,6 +7,7 @@ import AgencyApprovalsPage from './pages/AgencyApprovalsPage';
 import UserDirectoryPage from './pages/UserDirectoryPage';
 import PackageModerationPage from './pages/PackageModerationPage';
 import ChatMonitoringPage from './pages/ChatMonitoringPage';
+import PaymentsPage from './pages/PaymentsPage';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="users" element={<UserDirectoryPage />} />
             <Route path="packages" element={<PackageModerationPage />} />
             <Route path="chat" element={<ChatMonitoringPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

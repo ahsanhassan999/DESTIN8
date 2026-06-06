@@ -192,10 +192,35 @@ async def pay_booking(
     if booking.status == BookingStatus.confirmed:
         raise HTTPException(status_code=400, detail="Booking is already paid and confirmed.")
 
+    # 1. Fetch the package to check the agency's bank verification status
     pkg_res = await db.execute(select(Package).where(Package.id == booking.package_id))
     pkg = pkg_res.scalar_one_or_none()
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
+
+    # 2. Verify the agency has a verified bank account before accepting payment
+    agency_profile_res = await db.execute(select(AgencyProfile).where(AgencyProfile.user_id == pkg.agency_id))
+    agency_profile = agency_profile_res.scalar_one_or_none()
+    if not agency_profile or not agency_profile.bank_name:
+        raise HTTPException(
+            status_code=400,
+            detail="The agency has not set up a bank account yet. Payment cannot be processed."
+        )
+    if agency_profile.bank_verification_status == "not_submitted":
+        raise HTTPException(
+            status_code=400,
+            detail="The agency's bank account has not been submitted for verification. Payment cannot be processed."
+        )
+    if agency_profile.bank_verification_status == "pending":
+        raise HTTPException(
+            status_code=400,
+            detail="The agency's bank account is pending admin verification. Payment will be available once the account is approved."
+        )
+    if agency_profile.bank_verification_status == "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail=f"The agency's bank account was rejected by admin. Reason: {agency_profile.bank_rejection_reason or 'No reason provided'}. Please contact the agency."
+        )
 
     card_brand = "Visa"
     last_four = "4242"
@@ -420,7 +445,9 @@ async def get_bank_details(
         "bank_name": profile.bank_name or "",
         "account_title": profile.account_title or "",
         "account_number": profile.account_number or "",
-        "branch_code": profile.branch_code or ""
+        "branch_code": profile.branch_code or "",
+        "bank_verification_status": profile.bank_verification_status or "not_submitted",
+        "bank_rejection_reason": profile.bank_rejection_reason or None,
     }
 
 
@@ -440,16 +467,20 @@ async def update_bank_details(
     profile.account_title = data.account_title
     profile.account_number = data.account_number
     profile.branch_code = data.branch_code
+    # Reset verification to pending whenever bank details are updated
+    profile.bank_verification_status = "pending"
+    profile.bank_rejection_reason = None
 
     await db.commit()
     await db.refresh(profile)
 
     return {
-        "message": "Bank details updated successfully.",
+        "message": "Bank details submitted for admin verification. You will be notified once approved.",
         "bank_name": profile.bank_name,
         "account_title": profile.account_title,
         "account_number": profile.account_number,
-        "branch_code": profile.branch_code
+        "branch_code": profile.branch_code,
+        "bank_verification_status": profile.bank_verification_status,
     }
 
 

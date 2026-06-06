@@ -5,7 +5,8 @@ from sqlalchemy import func, delete
 from typing import Optional
 
 from app.database import get_db
-from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking
+from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking, PaymentTransaction
+from pydantic import BaseModel
 from app.schemas import (
     AgencyWithProfileResponse,
     AgencyProfileResponse,
@@ -336,4 +337,228 @@ async def restore_package(
     pkg.takedown_reason = None
     await db.commit()
     return {"message": "Package restored."}
+
+
+
+
+# ─── Payments: Revenue Overview Stats ─────────────────────────────────────────
+@router.get("/payments/stats")
+async def get_payment_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    txns_res = await db.execute(select(PaymentTransaction))
+    txns = txns_res.scalars().all()
+    success_txns = [t for t in txns if t.status == "success"]
+
+    total_revenue = sum(t.commission_deducted for t in success_txns)
+    total_deposits = sum(t.amount_paid for t in success_txns)
+    total_payouts = sum(t.payout_amount for t in success_txns)
+    pending_payouts_amount = sum(t.payout_amount for t in success_txns if t.payout_status == "pending")
+    pending_payout_count = sum(1 for t in success_txns if t.payout_status == "pending")
+    total_transactions = len(success_txns)
+
+    return {
+        "total_platform_revenue": round(total_revenue, 2),
+        "total_deposits_collected": round(total_deposits, 2),
+        "total_agency_payouts_sent": round(total_payouts, 2),
+        "pending_payout_amount": round(pending_payouts_amount, 2),
+        "pending_payout_count": pending_payout_count,
+        "total_transactions": total_transactions,
+    }
+
+
+# ─── Payments: All Transactions Table ─────────────────────────────────────────
+@router.get("/payments/transactions")
+async def get_all_transactions(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    txns_res = await db.execute(select(PaymentTransaction).order_by(PaymentTransaction.created_at.desc()))
+    txns = txns_res.scalars().all()
+
+    output = []
+    for t in txns:
+        booking_res = await db.execute(select(Booking).where(Booking.id == t.booking_id))
+        booking = booking_res.scalar_one_or_none()
+
+        package_title = "Unknown"
+        agency_name = "Unknown"
+        traveler_name = "Unknown"
+        traveler_email = ""
+
+        if booking:
+            pkg_res = await db.execute(select(Package).where(Package.id == booking.package_id))
+            pkg = pkg_res.scalar_one_or_none()
+            if pkg:
+                package_title = pkg.title
+                ag_res = await db.execute(select(AgencyProfile).where(AgencyProfile.user_id == pkg.agency_id))
+                ag = ag_res.scalar_one_or_none()
+                agency_name = ag.agency_name if ag else "Unknown"
+
+            traveler_res = await db.execute(select(User).where(User.id == booking.traveler_id))
+            traveler = traveler_res.scalar_one_or_none()
+            if traveler:
+                traveler_name = traveler.name
+                traveler_email = traveler.email
+
+        output.append({
+            "id": t.id,
+            "booking_id": t.booking_id,
+            "package_title": package_title,
+            "agency_name": agency_name,
+            "traveler_name": traveler_name,
+            "traveler_email": traveler_email,
+            "transaction_ref": t.transaction_ref,
+            "amount_paid": t.amount_paid,
+            "commission_deducted": t.commission_deducted,
+            "payout_amount": t.payout_amount,
+            "payment_method": t.payment_method,
+            "status": t.status,
+            "payout_status": t.payout_status,
+            "payout_ref": t.payout_ref,
+            "created_at": str(t.created_at),
+        })
+    return output
+
+
+# ─── Payments: Per-Agency Payouts Breakdown ────────────────────────────────────
+@router.get("/payments/agency-payouts")
+async def get_agency_payouts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    agencies_res = await db.execute(
+        select(User, AgencyProfile)
+        .join(AgencyProfile, AgencyProfile.user_id == User.id)
+        .where(User.role == UserRole.agency)
+    )
+    agency_rows = agencies_res.all()
+
+    output = []
+    for user_obj, profile in agency_rows:
+        packages_res = await db.execute(select(Package.id).where(Package.agency_id == user_obj.id))
+        pkg_ids = packages_res.scalars().all()
+
+        total_earned = 0.0
+        total_fees = 0.0
+        txn_count = 0
+
+        if pkg_ids:
+            bookings_res = await db.execute(
+                select(Booking.id).where(Booking.package_id.in_(pkg_ids), Booking.status == "confirmed")
+            )
+            booking_ids = bookings_res.scalars().all()
+            if booking_ids:
+                txns_res = await db.execute(
+                    select(PaymentTransaction).where(
+                        PaymentTransaction.booking_id.in_(booking_ids),
+                        PaymentTransaction.status == "success"
+                    )
+                )
+                txns = txns_res.scalars().all()
+                total_earned = sum(t.payout_amount for t in txns)
+                total_fees = sum(t.commission_deducted for t in txns)
+                txn_count = len(txns)
+
+        output.append({
+            "agency_id": user_obj.id,
+            "agency_name": profile.agency_name,
+            "owner_name": profile.owner_name,
+            "email": user_obj.email,
+            "bank_name": profile.bank_name or "",
+            "account_number": profile.account_number or "",
+            "branch_code": profile.branch_code or "",
+            "bank_verification_status": profile.bank_verification_status or "not_submitted",
+            "total_earned": round(total_earned, 2),
+            "total_fees_paid": round(total_fees, 2),
+            "transaction_count": txn_count,
+        })
+    return output
+
+
+# ─── Payments: Mark Pending Payout as Paid ────────────────────────────────────
+@router.patch("/payments/transactions/{txn_id}/mark-paid")
+async def mark_payout_paid(
+    txn_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    txn_res = await db.execute(select(PaymentTransaction).where(PaymentTransaction.id == txn_id))
+    txn = txn_res.scalar_one_or_none()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found.")
+    if txn.payout_status == "paid":
+        raise HTTPException(status_code=400, detail="Payout already marked as paid.")
+    txn.payout_status = "paid"
+    await db.commit()
+    return {"message": "Payout marked as paid."}
+
+
+# ─── Payments: Bank Account Verification Queue ─────────────────────────────────
+@router.get("/payments/bank-verifications")
+async def get_bank_verifications(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    result = await db.execute(
+        select(User, AgencyProfile)
+        .join(AgencyProfile, AgencyProfile.user_id == User.id)
+        .where(User.role == UserRole.agency)
+        .where(AgencyProfile.bank_name.isnot(None))
+    )
+    rows = result.all()
+
+    output = []
+    for user_obj, profile in rows:
+        output.append({
+            "agency_id": user_obj.id,
+            "agency_name": profile.agency_name,
+            "owner_name": profile.owner_name,
+            "email": user_obj.email,
+            "bank_name": profile.bank_name or "",
+            "account_title": profile.account_title or "",
+            "account_number": profile.account_number or "",
+            "branch_code": profile.branch_code or "",
+            "bank_verification_status": profile.bank_verification_status or "not_submitted",
+            "bank_rejection_reason": profile.bank_rejection_reason or None,
+            "submitted_at": str(profile.updated_at),
+        })
+    return output
+
+
+# ─── Payments: Verify or Reject Bank Account ──────────────────────────────────
+class BankVerifyRequest(BaseModel):
+    action: str   # "verify" or "reject"
+    reason: Optional[str] = None
+
+
+@router.patch("/payments/bank-verifications/{agency_id}")
+async def verify_bank_account(
+    agency_id: str,
+    data: BankVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    profile_res = await db.execute(select(AgencyProfile).where(AgencyProfile.user_id == agency_id))
+    profile = profile_res.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Agency profile not found.")
+
+    if data.action == "verify":
+        profile.bank_verification_status = "verified"
+        profile.bank_rejection_reason = None
+        msg = "Bank account verified successfully."
+    elif data.action == "reject":
+        if not data.reason:
+            raise HTTPException(status_code=400, detail="Rejection reason is required.")
+        profile.bank_verification_status = "rejected"
+        profile.bank_rejection_reason = data.reason
+        msg = "Bank account rejected."
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'verify' or 'reject'.")
+
+    await db.commit()
+    return {"message": msg, "bank_verification_status": profile.bank_verification_status}
+
 

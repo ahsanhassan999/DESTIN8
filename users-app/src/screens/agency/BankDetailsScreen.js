@@ -36,6 +36,8 @@ export default function BankDetailsScreen({ navigation }) {
   
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState('not_submitted');
+  const [rejectionReason, setRejectionReason] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,6 +50,8 @@ export default function BankDetailsScreen({ navigation }) {
             setAccountTitle(details.account_title || '');
             setAccountNumber(details.account_number || '');
             setBranchCode(details.branch_code || '');
+            setVerificationStatus(details.bank_verification_status || 'not_submitted');
+            setRejectionReason(details.bank_rejection_reason || null);
           }
         } catch (err) {
           console.log('Failed to fetch bank details:', err);
@@ -74,7 +78,8 @@ export default function BankDetailsScreen({ navigation }) {
         branch_code: branchCode.trim(),
       });
       console.log('Bank details saved:', result);
-      Alert.alert('Success ✓', 'Bank account linked successfully! Payouts will be sent to this account after traveler deposits.', [
+      setVerificationStatus('pending');
+      Alert.alert('Submitted for Verification ✓', 'Your bank account details have been submitted. Admin will review and verify them. You will be able to receive payouts once verified.', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (err) {
@@ -106,6 +111,32 @@ export default function BankDetailsScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Verification Status Badge */}
+          {verificationStatus !== 'not_submitted' && (
+            <View style={[
+              styles.verificationBadge,
+              verificationStatus === 'verified' && styles.badgeVerified,
+              verificationStatus === 'pending' && styles.badgePending,
+              verificationStatus === 'rejected' && styles.badgeRejected,
+            ]}>
+              <MaterialIcons
+                name={verificationStatus === 'verified' ? 'verified' : verificationStatus === 'pending' ? 'hourglass-empty' : 'error'}
+                size={18}
+                color={verificationStatus === 'verified' ? '#1b8a4e' : verificationStatus === 'pending' ? '#a16207' : '#b91c1c'}
+              />
+              <Text style={[
+                styles.verificationText,
+                verificationStatus === 'verified' && { color: '#1b8a4e' },
+                verificationStatus === 'pending' && { color: '#a16207' },
+                verificationStatus === 'rejected' && { color: '#b91c1c' },
+              ]}>
+                {verificationStatus === 'verified' && 'Account Verified — Payouts Enabled'}
+                {verificationStatus === 'pending' && 'Pending Admin Verification — Payouts on hold'}
+                {verificationStatus === 'rejected' && `Account Rejected: ${rejectionReason || 'Contact support'}`}
+              </Text>
+            </View>
+          )}
+
           {/* Info Banner */}
           <View style={styles.infoBanner}>
             <MaterialIcons name="info" size={22} color={C.primary} />
@@ -184,15 +215,20 @@ export default function BankDetailsScreen({ navigation }) {
 
           {/* Action Button */}
           <TouchableOpacity
-            style={[styles.saveBtn, loading && { backgroundColor: 'rgba(150, 123, 182, 0.6)' }]}
+            style={[
+              styles.saveBtn,
+              (loading || verificationStatus === 'verified') && { backgroundColor: 'rgba(150, 123, 182, 0.5)' }
+            ]}
             activeOpacity={0.8}
             onPress={handleSave}
-            disabled={loading}
+            disabled={loading || verificationStatus === 'verified'}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.saveBtnTxt}>Link Account</Text>
+              <Text style={styles.saveBtnTxt}>
+                {verificationStatus === 'verified' ? 'Account Already Verified' : 'Submit for Verification'}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -218,6 +254,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(150, 123, 182, 0.2)',
     gap: 12,
+  },
+  verificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    marginBottom: 4,
+  },
+  badgeVerified: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  badgePending: {
+    backgroundColor: '#fefce8',
+    borderColor: '#fde047',
+  },
+  badgeRejected: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fca5a5',
+  },
+  verificationText: {
+    flex: 1,
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
   },
   infoText: {
     flex: 1,

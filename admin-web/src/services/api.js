@@ -121,4 +121,34 @@ export const api = {
       method: 'PATCH',
     });
   },
+
+  // ─── Payments ──────────────────────────────────────────────────────────────
+  getPaymentStats: async () => {
+    return await request('/api/admin/payments/stats', { method: 'GET' });
+  },
+
+  getAllTransactions: async () => {
+    return await request('/api/admin/payments/transactions', { method: 'GET' });
+  },
+
+  getAgencyPayouts: async () => {
+    return await request('/api/admin/payments/agency-payouts', { method: 'GET' });
+  },
+
+  getBankVerifications: async () => {
+    return await request('/api/admin/payments/bank-verifications', { method: 'GET' });
+  },
+
+  verifyBankAccount: async (agencyId, action, reason = null) => {
+    return await request(`/api/admin/payments/bank-verifications/${agencyId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, reason }),
+    });
+  },
+
+  markPayoutPaid: async (txnId) => {
+    return await request(`/api/admin/payments/transactions/${txnId}/mark-paid`, {
+      method: 'PATCH',
+    });
+  },
 };

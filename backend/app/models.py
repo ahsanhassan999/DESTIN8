@@ -59,6 +59,8 @@ class AgencyProfile(Base):
     account_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     branch_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    bank_verification_status: Mapped[str] = mapped_column(String(20), default="not_submitted")  # not_submitted | pending | verified | rejected
+    bank_rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

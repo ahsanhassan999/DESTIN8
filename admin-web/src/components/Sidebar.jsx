@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import './Sidebar.css';
 
 const NAV = [
@@ -29,11 +30,28 @@ const NAV = [
       { to: '/chat', icon: IconChat, label: 'Chat Monitoring', soon: true },
     ],
   },
+  {
+    label: 'Finance',
+    items: [
+      { to: '/payments', icon: IconPayments, label: 'Payments', badgeKey: 'payments' },
+    ],
+  },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [dynamicBadges, setDynamicBadges] = useState({});
+
+  useEffect(() => {
+    // Fetch pending bank verification count for the badge
+    api.getBankVerifications()
+      .then((verifs) => {
+        const pending = (verifs || []).filter((v) => v.bank_verification_status === 'pending').length;
+        setDynamicBadges({ payments: pending > 0 ? pending : null });
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -78,8 +96,10 @@ export default function Sidebar({ collapsed, onToggle }) {
                 {!collapsed && (
                   <>
                     <span className="sidebar-item-label">{item.label}</span>
-                    {item.badge && (
-                      <span className="sidebar-item-badge">{item.badge}</span>
+                    {(item.badge || dynamicBadges[item.badgeKey]) && (
+                      <span className="sidebar-item-badge">
+                        {dynamicBadges[item.badgeKey] || item.badge}
+                      </span>
                     )}
                     {item.soon && (
                       <span className="badge badge-coming" style={{ fontSize: '10px', padding: '2px 7px' }}>Soon</span>
@@ -170,6 +190,16 @@ function IconChevron({ className }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="m15 18-6-6 6-6"/>
+    </svg>
+  );
+}
+function IconPayments({ className }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <path d="M2 10h20"/>
+      <path d="M6 15h4"/>
+      <path d="M14 15h2"/>
     </svg>
   );
 }
