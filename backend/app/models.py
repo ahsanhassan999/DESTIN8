@@ -42,6 +42,7 @@ class User(Base):
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="user")
     wishlist: Mapped[list["Wishlist"]] = relationship("Wishlist", back_populates="user")
     bookings: Mapped[list["Booking"]] = relationship("Booking", back_populates="traveler", foreign_keys="Booking.traveler_id")
+    saved_cards: Mapped[list["SavedCard"]] = relationship("SavedCard", back_populates="user", cascade="all, delete-orphan")
 
 
 class AgencyProfile(Base):
@@ -54,6 +55,10 @@ class AgencyProfile(Base):
     business_address: Mapped[str] = mapped_column(Text)
     license_number: Mapped[str] = mapped_column(String(50))
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    branch_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -78,6 +83,7 @@ class Package(Base):
     is_takedown: Mapped[bool] = mapped_column(Boolean, default=False)
     takedown_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     itinerary: Mapped[str] = mapped_column(Text, default="[]")  # JSON string
+    deposit_percentage: Mapped[int] = mapped_column(Integer, default=50)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -139,3 +145,38 @@ class Booking(Base):
     # Relationships
     traveler: Mapped["User"] = relationship("User", back_populates="bookings", foreign_keys=[traveler_id])
     package: Mapped["Package"] = relationship("Package", back_populates="bookings")
+
+
+class SavedCard(Base):
+    __tablename__ = "saved_cards"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    card_brand: Mapped[str] = mapped_column(String(20))
+    last_four: Mapped[str] = mapped_column(String(4))
+    exp_month: Mapped[int] = mapped_column(Integer)
+    exp_year: Mapped[int] = mapped_column(Integer)
+    card_token: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="saved_cards")
+
+
+class PaymentTransaction(Base):
+    __tablename__ = "payment_transactions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    booking_id: Mapped[str] = mapped_column(String(36), ForeignKey("bookings.id"))
+    transaction_ref: Mapped[str] = mapped_column(String(50))
+    amount_paid: Mapped[float] = mapped_column(Float)
+    commission_deducted: Mapped[float] = mapped_column(Float)
+    payout_amount: Mapped[float] = mapped_column(Float)
+    payment_method: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))
+    payout_status: Mapped[str] = mapped_column(String(20), default="pending")
+    payout_ref: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    booking: Mapped["Booking"] = relationship("Booking")

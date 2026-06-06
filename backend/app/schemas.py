@@ -105,9 +105,19 @@ class AgencyProfileResponse(BaseModel):
     business_address: str
     license_number: str
     rejection_reason: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_title: Optional[str] = None
+    account_number: Optional[str] = None
+    branch_code: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+class BankDetailsUpdateRequest(BaseModel):
+    bank_name: str
+    account_title: str
+    account_number: str
+    branch_code: str
 
 
 class AgencyWithProfileResponse(BaseModel):
@@ -174,6 +184,7 @@ class PackageCreateRequest(BaseModel):
     departure_date: Optional[str] = None
     is_active: Optional[bool] = True
     itinerary: Optional[str] = "[]"  # JSON string
+    deposit_percentage: Optional[int] = 50
 
 
 class PackageUpdateRequest(BaseModel):
@@ -187,6 +198,7 @@ class PackageUpdateRequest(BaseModel):
     departure_date: Optional[str] = None
     is_active: Optional[bool] = None
     itinerary: Optional[str] = None
+    deposit_percentage: Optional[int] = None
 
 
 class PackageResponse(BaseModel):
@@ -205,12 +217,48 @@ class PackageResponse(BaseModel):
     itinerary: str = "[]"
     is_takedown: bool = False
     takedown_reason: Optional[str] = None
+    deposit_percentage: int = 50
     created_at: str
     average_rating: Optional[float] = None
     review_count: int = 0
 
     class Config:
         from_attributes = True
+
+
+class SavedCardResponse(BaseModel):
+    id: str
+    card_brand: str
+    last_four: str
+    exp_month: int
+    exp_year: int
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentTransactionResponse(BaseModel):
+    id: str
+    booking_id: str
+    transaction_ref: str
+    amount_paid: float
+    commission_deducted: float
+    payout_amount: float
+    payment_method: str
+    status: str
+    payout_status: str
+    payout_ref: Optional[str] = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class AgencyWalletResponse(BaseModel):
+    total_balance: float
+    platform_fees_paid: float
+    withdrawn_balance: float
+    payout_history: list[PaymentTransactionResponse]
 
 
 # ─── Review ───────────────────────────────────────────────────────────────────
