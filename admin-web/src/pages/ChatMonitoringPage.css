@@ -2,7 +2,7 @@
 .chat-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .chat-page-header {
@@ -13,7 +13,7 @@
 }
 
 .chat-page-title {
-  font-size: 1.6rem;
+  font-size: clamp(1.2rem, 1.5vw, 1.6rem);
   font-weight: 700;
   color: var(--color-text);
   margin: 0;
@@ -21,7 +21,7 @@
 }
 
 .chat-page-sub {
-  font-size: 0.875rem;
+  font-size: clamp(0.75rem, 0.85vw, 0.875rem);
   color: var(--color-text-muted);
   margin: 4px 0 0;
 }
@@ -49,11 +49,23 @@
   color: var(--color-plum);
 }
 
-/* ─── Stat Cards Grid (reusing DashboardPage stat-card/stat-icon classes) ────── */
+/* ─── Stat Cards Grid ────────────────────────────────────────────────────────────── */
 .chat-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 12px;
+}
+/* Stat cards on chat page are slimmer */
+.chat-stats-grid .stat-card {
+  padding: 14px 16px;
+}
+.chat-stats-grid .stat-value {
+  font-size: clamp(1.2rem, 1.6vw, 1.6rem);
+  margin: 1px 0;
+}
+.chat-stats-grid .stat-icon {
+  width: 38px;
+  height: 38px;
 }
 
 /* Extra stat icon red variant is defined globally in index.css as .stat-icon--red */
@@ -61,10 +73,11 @@
 /* ─── Main Layout ────────────────────────────────────────────────────────────── */
 .chat-layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 20px;
-  min-height: 620px;
-  max-height: calc(100vh - 420px);
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  /* Fill the remaining vertical space: 100vh minus topbar(64) minus content padding(~56) minus header(~56) minus stats(~78) minus gaps(~50) */
+  height: calc(100vh - 310px);
+  min-height: 480px;
 }
 
 /* ─── Left Pane: Conversations list ─────────────────────────────────────────── */
@@ -705,11 +718,16 @@
   gap: 6px;
 }
 
-/* ─── Responsive ─────────────────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
-  .chat-stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .chat-layout { grid-template-columns: 1fr; max-height: none; }
+/* ─── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .chat-layout { grid-template-columns: 280px 1fr; gap: 12px; }
+}
+@media (max-width: 1000px) {
+  .chat-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .chat-layout { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .chat-list-pane { max-height: 400px; }
+  .chat-monitor-pane { min-height: 500px; }
 }
 @media (max-width: 640px) {
-  .chat-stats-grid { grid-template-columns: 1fr 1fr; }
+  .chat-stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }

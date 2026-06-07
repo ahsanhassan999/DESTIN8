@@ -496,3 +496,18 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .pay-cards-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  .pay-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .pay-table-wrap { font-size: 0.75rem; }
+  .pay-table th, .pay-table td { padding: 8px 10px; }
+}
+@media (max-width: 640px) {
+  .pay-cards-grid { grid-template-columns: 1fr; }
+  .pay-filters { flex-direction: column; width: 100%; }
+  .pay-search { width: 100%; }
+}

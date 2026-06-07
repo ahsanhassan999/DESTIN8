@@ -42,8 +42,8 @@
   --sidebar-hover-bg:     #F5F2FA;
   --sidebar-text:         #595C5D;
   --sidebar-label:        #9B9D9E;
-  --sidebar-width:        260px;
-  --sidebar-collapsed:    68px;
+  --sidebar-width:        240px;
+  --sidebar-collapsed:    64px;
 
   /* Radius */
   --radius-sm:   6px;
@@ -344,8 +344,8 @@ tbody td { padding: 13px 16px; font-size: 13.5px; color: var(--color-text); vert
 .stat-icon--indigo { background: #E0E7FF; color: #4338CA; }
 .stat-icon--red    { background: var(--color-danger-bg);  color: var(--color-danger);  }
 .stat-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.stat-label { font-size: 11.5px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-value { font-family: 'Epilogue', sans-serif; font-size: 28px; font-weight: 800; color: var(--color-text); line-height: 1.1; margin: 2px 0; }
+.stat-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-value { font-family: 'Epilogue', sans-serif; font-size: clamp(1.4rem, 2vw, 1.75rem); font-weight: 800; color: var(--color-text); line-height: 1.1; margin: 2px 0; }
 .stat-trend { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
 .stat-trend--up      { color: var(--color-success); }
 .stat-trend--neutral { color: var(--color-warning); }
@@ -438,4 +438,21 @@ tbody td { padding: 13px 16px; font-size: 13.5px; color: var(--color-text); vert
 .details-list-item-meta {
   color: var(--color-text-muted);
   font-size: 12px;
+}
+
+/* ─── Global Responsive Breakpoints ─────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-card { padding: 18px 18px 14px; }
+}
+@media (max-width: 900px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-card { padding: 14px; gap: 12px; }
+  .stat-icon { width: 38px; height: 38px; }
+  .search-bar input { width: 180px; }
+  .details-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .search-bar input { width: 140px; }
 }

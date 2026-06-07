@@ -1,27 +1,32 @@
 .topbar {
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
+  padding: 0 clamp(16px, 2vw, 28px);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-surface-dim);
   position: sticky;
   top: 0;
   z-index: 50;
+  min-width: 0;
 }
-.topbar-left { display: flex; flex-direction: column; justify-content: center; }
+.topbar-left { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .topbar-title {
   font-family: 'Epilogue', sans-serif;
-  font-size: 17px;
+  font-size: clamp(14px, 1.2vw, 17px);
   font-weight: 700;
   color: var(--color-text);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .topbar-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-muted);
   margin-top: 1px;
+  white-space: nowrap;
 }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .topbar-bell {

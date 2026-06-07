@@ -1,6 +1,7 @@
 .admin-layout {
   display: flex;
   min-height: 100vh;
+  min-width: 0;
 }
 .admin-main {
   flex: 1;
@@ -9,14 +10,17 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
   background: var(--color-bg);
+  overflow-x: hidden;
 }
 .admin-layout--collapsed .admin-main {
   margin-left: var(--sidebar-collapsed);
 }
 .admin-content {
   flex: 1;
-  padding: 28px;
-  max-width: 1400px;
+  padding: clamp(16px, 2vw, 28px);
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
