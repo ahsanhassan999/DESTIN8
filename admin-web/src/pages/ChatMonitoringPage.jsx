@@ -57,6 +57,7 @@ function IconFlagged()  { return <svg width="18" height="18" viewBox="0 0 24 24"
 function IconUnread()   { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 function IconWarnings() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>; }
 function IconTagsIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>; }
+function IconFilter()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>; }
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 function ConvContextMenu({ menu, onClose, onAction, panelMode }) {
@@ -117,8 +118,9 @@ function ConvContextMenu({ menu, onClose, onAction, panelMode }) {
 }
 
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
-function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTabChange, onTabClose, flaggedIds, onToggleFlag, onSendWarning, onInitiateTakedown, convTags, tags }) {
+function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTabChange, onTabClose, flaggedIds, onToggleFlag, onSendWarning, onInitiateTakedown, convTags, tags, toggleConvTag }) {
   const [warningText, setWarningText] = useState('');
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
   const messagesEndRef = useRef(null);
 
   const activeConv    = conversations.find(c => c.id === activeTabId);
@@ -127,6 +129,10 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeMessages]);
+
+  useEffect(() => {
+    setShowTagDropdown(false);
+  }, [activeTabId]);
 
   if (tabs.length === 0) {
     return (
@@ -178,6 +184,12 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
                 <h3>{activeConv.agency}</h3>
               </div>
               <div className="chat-pkg-meta">Enquiry: <strong>{activeConv.package}</strong></div>
+              <div className="chat-ids-meta">
+                <span className="chat-id-badge">Chat ID: {activeConv.id}</span>
+                <span className="chat-id-badge">Traveler ID: T-{activeConv.id.replace('c', 'usr')}</span>
+                <span className="chat-id-badge">Agency ID: AG-{activeConv.id.replace('c', 'age')}</span>
+                <span className="chat-id-badge">Package ID: PKG-{activeConv.id.replace('c', 'pkg')}</span>
+              </div>
               {/* Conv tags */}
               {(convTags[activeTabId] || []).length > 0 && (
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -192,7 +204,25 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
               <button className={`btn-flag ${flaggedIds.has(activeConv.id) ? 'btn-flag-active' : ''}`} onClick={() => onToggleFlag(activeConv.id)}>
                 {flaggedIds.has(activeConv.id) ? '🚩 Flagged' : '🏳️ Flag'}
               </button>
+              <button className={`btn-flag ${showTagDropdown ? 'btn-flag-active' : ''}`} onClick={() => setShowTagDropdown(prev => !prev)}>
+                🏷️ Tag
+              </button>
               <button className="btn-moderate-pkg" onClick={() => onInitiateTakedown(activeConv)}>Moderate Tour</button>
+
+              {showTagDropdown && (
+                <div className="chat-tag-assign-dropdown chat-tag-assign-dropdown--panel" onClick={e => e.stopPropagation()}>
+                  <div className="tag-dropdown-header"><span>Assign Tags</span><button className="tag-dropdown-close" onClick={() => setShowTagDropdown(false)}>✕</button></div>
+                  <div className="tag-dropdown-list">
+                    {tags.map(tag => (
+                      <label key={tag.id} className="tag-dropdown-item">
+                        <input type="checkbox" checked={(convTags[activeTabId] || []).includes(tag.id)} onChange={() => toggleConvTag(activeTabId, tag.id)} />
+                        <span className="tag-dot" style={{ background: tag.color }} />
+                        <span>{tag.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -361,6 +391,15 @@ export default function ChatMonitoringPage() {
   // Search & filters
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  const getFilterLabel = (f) => {
+    if (f === 'all') return 'All';
+    if (f === 'unread') return 'Unread';
+    if (f === 'flagged') return 'Flagged';
+    const tag = tags.find(t => t.id === f);
+    return tag ? tag.label : 'Filter';
+  };
 
   // Flags & tags
   const [flaggedIds,    setFlaggedIds]    = useState(new Set(['c1']));
@@ -400,9 +439,19 @@ export default function ChatMonitoringPage() {
   const openInPanel = useCallback((panelId, convId, addTab = true) => {
     setPanels(prev => {
       const panel = prev[panelId];
-      const newTabs = panel.tabs.includes(convId)
-        ? panel.tabs
-        : addTab ? [...panel.tabs, convId] : [convId, ...panel.tabs.filter(t => t !== convId)];
+      if (panel.tabs.includes(convId)) {
+        return { ...prev, [panelId]: { ...panel, activeTab: convId } };
+      }
+      let newTabs;
+      if (addTab) {
+        newTabs = [...panel.tabs, convId];
+      } else {
+        if (panel.activeTab && panel.tabs.includes(panel.activeTab)) {
+          newTabs = panel.tabs.map(t => t === panel.activeTab ? convId : t);
+        } else {
+          newTabs = [convId];
+        }
+      }
       return { ...prev, [panelId]: { tabs: newTabs, activeTab: convId } };
     });
     markAsRead(convId);
@@ -436,13 +485,13 @@ export default function ChatMonitoringPage() {
     setContextMenu(null);
     switch (action) {
       case 'panel-a':
-        openInPanel('A', convId, true);
+        openInPanel('A', convId, false);
         break;
       case 'tab-a':
         openInPanel('A', convId, true);
         break;
       case 'panel-b':
-        openInPanel('B', convId, true);
+        openInPanel('B', convId, false);
         break;
       case 'tab-b':
         openInPanel('B', convId, true);
@@ -465,9 +514,9 @@ export default function ChatMonitoringPage() {
     }
   }, [openInPanel, markAsRead, tagAssignConvId]);
 
-  // Left-click: open in Panel A as new tab
+  // Left-click: open normally by replacing the active tab
   const handleLeftClick = useCallback((convId) => {
-    openInPanel('A', convId, true);
+    openInPanel('A', convId, false);
   }, [openInPanel]);
 
   // ─── Flags & Tags ─────────────────────────────────────────────────────────
@@ -564,7 +613,7 @@ export default function ChatMonitoringPage() {
   };
 
   return (
-    <div className="chat-page" onClick={() => setContextMenu(null)}>
+    <div className="chat-page" onClick={() => { setContextMenu(null); setShowFilterDropdown(false); }}>
 
       {/* ─── Compact Toolbar ─────────────────────────────────────────────── */}
       <div className="chat-toolbar">
@@ -612,28 +661,40 @@ export default function ChatMonitoringPage() {
         <div className="chat-list-pane">
           <div className="chat-search-container">
             <input className="chat-search-input" placeholder="Search traveler, agency, tour…" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          <div className="chat-filter-tabs">
-            {[{k:'all',l:'All'},{k:'unread',l:`Unread${unreadCount>0?` (${unreadCount})`:''}`},{k:'flagged',l:`Flagged${flaggedCount>0?` (${flaggedCount})`:''}`}].map(t => (
-              <button key={t.k} className={`chat-filter-tab ${filter===t.k?'active':''}`} onClick={() => setFilter(t.k)}>{t.l}</button>
-            ))}
-          </div>
-
-          {/* Tag filter pills */}
-          {tags.length > 0 && (
-            <div className="chat-tag-filters">
-              <span className="chat-tag-filter-label">Filter by tag:</span>
-              <div className="chat-tag-pills">
-                {tags.map(tag => (
-                  <button key={tag.id} className={`chat-tag-pill ${filter===tag.id?'active':''}`}
-                    style={{ background: filter===tag.id?tag.color:tag.color+'20', color: filter===tag.id?'#fff':tag.color, borderColor: filter===tag.id?tag.color:tag.color+'40' }}
-                    onClick={() => setFilter(filter===tag.id?'all':tag.id)}>
-                    {tag.label}
-                  </button>
-                ))}
-              </div>
+            <div className="chat-filter-dropdown-wrap">
+              <button className={`btn-filter-trigger ${filter !== 'all' ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setShowFilterDropdown(prev => !prev); }}>
+                <IconFilter /> {filter === 'all' ? 'Filter' : getFilterLabel(filter)}
+              </button>
+              {showFilterDropdown && (
+                <div className="chat-filter-dropdown" onClick={e => e.stopPropagation()}>
+                  <div className="filter-section">
+                    <span className="filter-section-title">Status</span>
+                    <button className={`filter-option ${filter === 'all' ? 'active' : ''}`} onClick={() => { setFilter('all'); setShowFilterDropdown(false); }}>All Chats</button>
+                    <button className={`filter-option ${filter === 'unread' ? 'active' : ''}`} onClick={() => { setFilter('unread'); setShowFilterDropdown(false); }}>Unread ({unreadCount})</button>
+                    <button className={`filter-option ${filter === 'flagged' ? 'active' : ''}`} onClick={() => { setFilter('flagged'); setShowFilterDropdown(false); }}>Flagged ({flaggedCount})</button>
+                  </div>
+                  {tags.length > 0 && (
+                    <>
+                      <div className="filter-divider" />
+                      <div className="filter-section">
+                        <span className="filter-section-title">Tags</span>
+                        {tags.map(tag => (
+                          <button
+                            key={tag.id}
+                            className={`filter-option filter-option--tag ${filter === tag.id ? 'active' : ''}`}
+                            onClick={() => { setFilter(filter === tag.id ? 'all' : tag.id); setShowFilterDropdown(false); }}
+                          >
+                            <span className="tag-dot" style={{ background: tag.color }} />
+                            <span>{tag.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="chat-list-hint">
             <span>💡 Right-click any chat for panel options</span>
@@ -743,6 +804,7 @@ export default function ChatMonitoringPage() {
             onInitiateTakedown={handleInitiateTakedown}
             convTags={convTags}
             tags={tags}
+            toggleConvTag={toggleConvTag}
           />
           {panelMode === 'split' && (
             <ChatPanel
@@ -759,6 +821,7 @@ export default function ChatMonitoringPage() {
               onInitiateTakedown={handleInitiateTakedown}
               convTags={convTags}
               tags={tags}
+              toggleConvTag={toggleConvTag}
             />
           )}
         </div>
