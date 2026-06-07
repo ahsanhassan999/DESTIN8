@@ -378,15 +378,17 @@ export default function ChatMonitoringPage() {
   const [takedownPkgId,     setTakedownPkgId]     = useState(null);
   const [takedownPkgTitle,  setTakedownPkgTitle]  = useState('');
   const [takedownReason,    setTakedownReason]    = useState('');
+  const autoOpenedRef = useRef(false);
 
   useEffect(() => { setConversations(mockConversations); }, []);
 
   // On load: auto-open the first flagged chat in Panel A
   useEffect(() => {
-    if (conversations.length === 0) return;
+    if (conversations.length === 0 || autoOpenedRef.current) return;
     const firstFlagged = conversations.find(c => flaggedIds.has(c.id));
     const target = firstFlagged || conversations[0];
     openInPanel('A', target.id, false);
+    autoOpenedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations]);
 
