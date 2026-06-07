@@ -543,44 +543,64 @@ export default function ChatMonitoringPage() {
 
   const TAG_COLORS = ['#ef4444','#f59e0b','#10b981','#0ea5e9','#6366f1','#8b5cf6','#ec4899','#14b8a6'];
 
+  // ─── Activity status derived from time string ─────────────────────────────
+  const getActivityStatus = (timeStr) => {
+    if (!timeStr) return 'inactive';
+    const t = timeStr.toLowerCase();
+    if (t === 'just now' || t === 'now') return 'active';
+    if (t.includes('min'))   return 'active';   // within the hour
+    if (t.includes('1 hr') || t.includes('2 hr') || t.includes('3 hr')) return 'recent';
+    if (t.includes('hr'))    return 'idle';      // several hours ago
+    return 'inactive';                            // yesterday / days ago
+  };
+
+  const ACTIVITY_META = {
+    active:   { label: 'Active now',  dot: '#22c55e', pulse: true  },
+    recent:   { label: 'Recent',      dot: '#f59e0b', pulse: false },
+    idle:     { label: 'A few hrs ago', dot: '#94a3b8', pulse: false },
+    inactive: { label: null,          dot: '#cbd5e1', pulse: false },
+  };
+
   return (
     <div className="chat-page" onClick={() => setContextMenu(null)}>
 
-      {/* ─── Header ──────────────────────────────────────────────────────── */}
-      <div className="chat-page-header">
-        <div>
-          <h1 className="chat-page-title">Chat &amp; Message Monitoring</h1>
-          <p className="chat-page-sub">Right-click any conversation for options • Monitor up to 4 chats simultaneously</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Panel mode toggle */}
-          <div className="panel-mode-toggle">
-            <button className={`panel-mode-btn ${panelMode === 'single' ? 'active' : ''}`} onClick={() => setPanelMode('single')} title="Single panel">◧ Single</button>
-            <button className={`panel-mode-btn ${panelMode === 'split' ? 'active' : ''}`} onClick={() => setPanelMode('split')} title="Split panels">◫ Split</button>
+      {/* ─── Compact Toolbar ─────────────────────────────────────────────── */}
+      <div className="chat-toolbar">
+        {/* Inline stats */}
+        <div className="chat-toolbar-stats">
+          <div className="chat-tstat chat-tstat--blue">
+            <div className="chat-tstat-icon"><IconChats /></div>
+            <span className="chat-tstat-val">{totalChats}</span>
+            <span className="chat-tstat-label">Total</span>
           </div>
-          <button className="btn-manage-tags" onClick={() => setShowTagModal(true)}>
-            <IconTagsIcon /> Tags
-          </button>
+          <div className="chat-tstat-divider" />
+          <div className={`chat-tstat ${unreadCount > 0 ? 'chat-tstat--orange' : ''}`}>
+            <div className="chat-tstat-icon"><IconUnread /></div>
+            <span className="chat-tstat-val">{unreadCount}</span>
+            <span className="chat-tstat-label">Unread</span>
+          </div>
+          <div className="chat-tstat-divider" />
+          <div className={`chat-tstat ${flaggedCount > 0 ? 'chat-tstat--red' : ''}`}>
+            <div className="chat-tstat-icon"><IconFlagged /></div>
+            <span className="chat-tstat-val">{flaggedCount}</span>
+            <span className="chat-tstat-label">Flagged</span>
+          </div>
+          <div className="chat-tstat-divider" />
+          <div className="chat-tstat chat-tstat--plum">
+            <div className="chat-tstat-icon"><IconWarnings /></div>
+            <span className="chat-tstat-val">{warningCount}</span>
+            <span className="chat-tstat-label">Warnings</span>
+          </div>
         </div>
-      </div>
 
-      {/* ─── Stat Cards ──────────────────────────────────────────────────── */}
-      <div className="chat-stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon stat-icon--blue"><IconChats /></div>
-          <div className="stat-body"><span className="stat-label">Total Chats</span><span className="stat-value">{totalChats}</span><span className="stat-trend stat-trend--up">Active conversations</span></div>
-        </div>
-        <div className="stat-card stat-card--alert">
-          <div className="stat-icon stat-icon--orange"><IconUnread /></div>
-          <div className="stat-body"><span className="stat-label">Unread</span><span className="stat-value">{unreadCount}</span><span className="stat-trend stat-trend--neutral">Awaiting review</span></div>
-        </div>
-        <div className="stat-card stat-card--alert">
-          <div className="stat-icon stat-icon--red"><IconFlagged /></div>
-          <div className="stat-body"><span className="stat-label">Flagged</span><span className="stat-value">{flaggedCount}</span><span className="stat-trend stat-trend--neutral">Needs attention</span></div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon stat-icon--plum"><IconWarnings /></div>
-          <div className="stat-body"><span className="stat-label">Warnings Sent</span><span className="stat-value">{warningCount}</span><span className="stat-trend stat-trend--up">System alerts injected</span></div>
+        {/* Controls */}
+        <div className="chat-toolbar-controls">
+          <span className="chat-toolbar-hint">Right-click chat for options</span>
+          <div className="panel-mode-toggle">
+            <button className={`panel-mode-btn ${panelMode === 'single' ? 'active' : ''}`} onClick={() => setPanelMode('single')}>◧ Single</button>
+            <button className={`panel-mode-btn ${panelMode === 'split'  ? 'active' : ''}`} onClick={() => setPanelMode('split')}>◫ Split</button>
+          </div>
+          <button className="btn-manage-tags" onClick={() => setShowTagModal(true)}><IconTagsIcon /> Tags</button>
         </div>
       </div>
 
@@ -622,53 +642,75 @@ export default function ChatMonitoringPage() {
             {sortedConversations.length === 0 ? (
               <div className="chat-empty-list">No conversations found</div>
             ) : sortedConversations.map(conv => {
-              const isFlagged  = flaggedIds.has(conv.id);
-              const convTagList = (convTags[conv.id] || []).map(tid => tags.find(t => t.id === tid)).filter(Boolean);
-              const isInPanelA = panels.A.tabs.includes(conv.id);
-              const isInPanelB = panels.B.tabs.includes(conv.id);
-              const isPopOut   = popOuts.includes(conv.id);
+              const isFlagged    = flaggedIds.has(conv.id);
+              const convTagList  = (convTags[conv.id] || []).map(tid => tags.find(t => t.id === tid)).filter(Boolean);
+              const isInPanelA   = panels.A.tabs.includes(conv.id);
+              const isInPanelB   = panels.B.tabs.includes(conv.id);
+              const isPopOut     = popOuts.includes(conv.id);
+              const activity     = getActivityStatus(conv.time);
+              const actMeta      = ACTIVITY_META[activity];
+              const isActive     = activity === 'active';
               return (
                 <div key={conv.id}
-                  className={`chat-list-item ${conv.unread?'unread':''} ${isFlagged?'flagged-item':''} ${panels.A.activeTab===conv.id||panels.B.activeTab===conv.id?'active':''}`}
+                  className={`chat-list-item ${conv.unread ? 'unread' : ''} ${isFlagged ? 'flagged-item' : ''} ${isActive ? 'conv-live' : ''} ${panels.A.activeTab === conv.id || panels.B.activeTab === conv.id ? 'active' : ''}`}
                   onClick={() => handleLeftClick(conv.id)}
                   onContextMenu={e => handleRightClick(e, conv.id)}
                 >
-                  <div className="chat-item-header">
+                  {/* Row 1: avatars + activity dot + time + badges */}
+                  <div className="chat-item-row1">
                     <div className="chat-item-avatars">
                       <div className="avatar avatar-sm avatar-blue" title={conv.traveler}>{conv.traveler.charAt(0)}</div>
                       <span className="chat-avatar-separator">↔</span>
                       <div className="avatar avatar-sm avatar-plum" title={conv.agency}>{conv.agency.charAt(0)}</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div className="chat-item-right-meta">
                       {isInPanelA && <span className="conv-panel-badge panel-a">A</span>}
                       {isInPanelB && <span className="conv-panel-badge panel-b">B</span>}
                       {isPopOut   && <span className="conv-panel-badge panel-pop">⧉</span>}
-                      <span className="chat-item-time">{conv.time}</span>
+                      {isFlagged  && <span className="chat-flag-chip">🚩</span>}
+                      {conv.unread && <span className="chat-unread-dot" />}
                     </div>
-                  </div>
-                  <div className="chat-item-meta">
-                    <span className="chat-item-user-labels"><strong>{conv.traveler}</strong> &amp; <span>{conv.agency}</span></span>
-                    <span className="chat-item-package-label">{conv.package}</span>
-                  </div>
-                  <p className="chat-item-snippet">{conv.lastMsg}</p>
-                  {convTagList.length > 0 && (
-                    <div className="chat-conv-tags">
-                      {convTagList.map(t => <span key={t.id} className="chat-conv-tag" style={{ background: t.color+'22', color: t.color, borderColor: t.color+'44' }}>{t.label}</span>)}
-                    </div>
-                  )}
-                  <div className="chat-item-indicators">
-                    {conv.unread  && <span className="chat-unread-indicator">New</span>}
-                    {isFlagged    && <span className="chat-flagged-indicator">🚩 Flagged</span>}
                   </div>
 
-                  {/* Inline tag assignment */}
+                  {/* Row 2: names */}
+                  <div className="chat-item-names">
+                    <strong>{conv.traveler}</strong>
+                    <span className="chat-item-sep">↔</span>
+                    <span>{conv.agency}</span>
+                  </div>
+
+                  {/* Row 3: package + activity status */}
+                  <div className="chat-item-row3">
+                    <span className="chat-item-package-label">{conv.package}</span>
+                    <div className="chat-activity-status">
+                      <span
+                        className={`chat-activity-dot ${actMeta.pulse ? 'pulsing' : ''}`}
+                        style={{ background: actMeta.dot }}
+                      />
+                      <span className="chat-activity-label" style={{ color: actMeta.dot }}>
+                        {isActive ? 'Active now' : conv.time}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 4: last message snippet */}
+                  <p className="chat-item-snippet">{conv.lastMsg}</p>
+
+                  {/* Tags (only if assigned) */}
+                  {convTagList.length > 0 && (
+                    <div className="chat-conv-tags">
+                      {convTagList.map(t => <span key={t.id} className="chat-conv-tag" style={{ background: t.color + '22', color: t.color, borderColor: t.color + '44' }}>{t.label}</span>)}
+                    </div>
+                  )}
+
+                  {/* Inline tag assignment dropdown */}
                   {tagAssignConvId === conv.id && (
                     <div className="chat-tag-assign-dropdown" onClick={e => e.stopPropagation()}>
                       <div className="tag-dropdown-header"><span>Assign Tags</span><button className="tag-dropdown-close" onClick={() => setTagAssignConvId(null)}>✕</button></div>
                       <div className="tag-dropdown-list">
                         {tags.map(tag => (
                           <label key={tag.id} className="tag-dropdown-item">
-                            <input type="checkbox" checked={(convTags[conv.id]||[]).includes(tag.id)} onChange={() => toggleConvTag(conv.id, tag.id)} />
+                            <input type="checkbox" checked={(convTags[conv.id] || []).includes(tag.id)} onChange={() => toggleConvTag(conv.id, tag.id)} />
                             <span className="tag-dot" style={{ background: tag.color }} />
                             <span>{tag.label}</span>
                           </label>
@@ -678,6 +720,7 @@ export default function ChatMonitoringPage() {
                   )}
                 </div>
               );
+
             })}
           </div>
         </div>
