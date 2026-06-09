@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,15 @@ import {
   TextInput,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import AppHeader from '../../components/AppHeader';
+import { useFocusEffect } from '@react-navigation/native';
+import { api } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -27,27 +31,51 @@ const getPackageInitials = (pkgName) => {
 export default function ChatListScreen({ navigation }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
   const isAgency = user?.role === 'agency';
   const primaryColor = isAgency ? '#967BB6' : '#52396f';
   const primaryBgLight = isAgency ? 'rgba(150, 123, 182, 0.15)' : 'rgba(82, 57, 111, 0.08)';
 
-  // Conversations will be loaded from backend when messaging API is ready
-  const conversations = [];
+  const loadConversations = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const data = await api.getConversations();
+      setConversations(data || []);
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadConversations(false);
+    }, [loadConversations])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadConversations(false);
+  };
 
   const filteredConversations = conversations.filter((conv) => {
     const query = searchQuery.toLowerCase();
     if (isAgency) {
       return (
-        conv.traveler.toLowerCase().includes(query) ||
-        conv.package.toLowerCase().includes(query) ||
-        conv.lastMsg.toLowerCase().includes(query)
+        (conv.traveler || '').toLowerCase().includes(query) ||
+        (conv.package || '').toLowerCase().includes(query) ||
+        (conv.lastMsg || '').toLowerCase().includes(query)
       );
     } else {
       return (
-        conv.package.toLowerCase().includes(query) ||
-        conv.lastMsg.toLowerCase().includes(query)
+        (conv.package || '').toLowerCase().includes(query) ||
+        (conv.lastMsg || '').toLowerCase().includes(query)
       );
     }
   });
@@ -63,6 +91,14 @@ export default function ChatListScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[primaryColor]}
+            tintColor={primaryColor}
+          />
+        }
       >
         {/* Page Header */}
         <View style={styles.pageHeader}>
@@ -86,7 +122,11 @@ export default function ChatListScreen({ navigation }) {
         </View>
 
         {/* Chat List */}
-        {filteredConversations.length === 0 ? (
+        {loading && !refreshing ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={primaryColor} />
+          </View>
+        ) : filteredConversations.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIconWrap, { backgroundColor: primaryBgLight }]}>
               <MaterialIcons name="forum" size={40} color={primaryColor} style={{ backgroundColor: 'transparent' }} />

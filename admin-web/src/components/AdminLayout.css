@@ -24,3 +24,21 @@
   min-width: 0;
   box-sizing: border-box;
 }
+
+/* ─── Docked Chats Container ─────────────────────────────────────────────────── */
+.docked-chats-container {
+  position: fixed;
+  bottom: 0;
+  right: 20px;
+  display: flex;
+  flex-direction: row-reverse; /* right to left */
+  align-items: flex-end;
+  gap: 16px;
+  z-index: 9000;
+  pointer-events: none; /* let clicks pass through the gaps */
+}
+
+/* Make sure the individual window is clickable */
+.docked-chats-container > * {
+  pointer-events: auto;
+}

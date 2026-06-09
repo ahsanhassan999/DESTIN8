@@ -16,6 +16,7 @@ const NAV = [
     items: [
       { to: '/agencies', icon: IconAgency,  label: 'Agency Approvals', badge: 14 },
       { to: '/users',    icon: IconUsers,   label: 'User Directory' },
+      { to: '/tickets',  icon: IconTickets, label: 'Support Tickets', badgeKey: 'tickets' },
     ],
   },
   {
@@ -48,7 +49,15 @@ export default function Sidebar({ collapsed, onToggle }) {
     api.getBankVerifications()
       .then((verifs) => {
         const pending = (verifs || []).filter((v) => v.bank_verification_status === 'pending').length;
-        setDynamicBadges({ payments: pending > 0 ? pending : null });
+        setDynamicBadges(prev => ({ ...prev, payments: pending > 0 ? pending : null }));
+      })
+      .catch(() => {});
+
+    // Fetch pending tickets count for the badge
+    api.getAdminTickets()
+      .then((tickets) => {
+        const pending = (tickets || []).filter((t) => t.status === 'open' || t.status === 'pending_approval').length;
+        setDynamicBadges(prev => ({ ...prev, tickets: pending > 0 ? pending : null }));
       })
       .catch(() => {});
   }, []);
@@ -200,6 +209,14 @@ function IconPayments({ className }) {
       <path d="M2 10h20"/>
       <path d="M6 15h4"/>
       <path d="M14 15h2"/>
+    </svg>
+  );
+}
+function IconTickets({ className }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/>
+      <path d="M13 5v14"/>
     </svg>
   );
 }

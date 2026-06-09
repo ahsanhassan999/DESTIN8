@@ -556,10 +556,12 @@ export default function PackageDetailScreen({ navigation, route }) {
               <Text style={styles.verifiedText}>Verified Agency</Text>
             </View>
             <Text style={styles.titleText}>{title}</Text>
-            <View style={styles.agencyRow}>
-              <MaterialIcons name="domain" size={18} color="#52396f" />
-              <Text style={styles.agencyNameText}>{agencyName}</Text>
-            </View>
+            {!isTraveler && (
+              <View style={styles.agencyRow}>
+                <MaterialIcons name="domain" size={18} color="#52396f" />
+                <Text style={styles.agencyNameText}>{agencyName}</Text>
+              </View>
+            )}
           </View>
 
           {/* Info Chips */}
@@ -761,41 +763,43 @@ export default function PackageDetailScreen({ navigation, route }) {
           ) : null}
 
           {/* Agency Profile Card */}
-          <View style={styles.agencyCard}>
-            <View style={styles.agencyCardLeft}>
-              {agencyName.toLowerCase().includes('odyssey') ? (
-                <View style={styles.agencyLogoWrap}>
-                  <Image
-                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCO_vPmNe2XQwno3QVmaOZ-7udhLHCkNLy2oQKJ2zNVW6y70Lx-weUO67_9UvVL6EY7-P-YJoRsbTOSFWss5sPmauzQGtlNcjIYQiA6tCjITiQT5nAsA1fn9ZkCbgRx3O5DYaYnfFhX5nxAvB8X5XaJ1dFdGPrr39JFyvaGH1IySQw-GUo9hkvjIC3bCJzX9W7KRyTzTBphsIsO5NkznQyUTJlhh7bgh01a2FRJolZ6fn4WgA_kvx1CbZ61AFViKlw3l_xaJD55ZrFM' }}
-                    style={styles.agencyLogo}
-                  />
-                </View>
-              ) : (
-                <View style={[styles.agencyLogoWrap, { backgroundColor: (() => {
-                  let hash = 0;
-                  for (let i = 0; i < agencyName.length; i++) {
-                    hash = agencyName.charCodeAt(i) + ((hash << 5) - hash);
-                  }
-                  const colors = ['#967BB6', '#52396f', '#6A5188', '#B29CCF', '#7b2cbf', '#9d4edd', '#c77dff'];
-                  const index = Math.abs(hash) % colors.length;
-                  return colors[index];
-                })() }]}>
-                  <Text style={{ color: '#ffffff', fontFamily: 'Epilogue_700Bold', fontSize: 24 }}>
-                    {agencyName.charAt(0).toUpperCase()}
+          {!isTraveler && (
+            <View style={styles.agencyCard}>
+              <View style={styles.agencyCardLeft}>
+                {agencyName.toLowerCase().includes('odyssey') ? (
+                  <View style={styles.agencyLogoWrap}>
+                    <Image
+                      source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCO_vPmNe2XQwno3QVmaOZ-7udhLHCkNLy2oQKJ2zNVW6y70Lx-weUO67_9UvVL6EY7-P-YJoRsbTOSFWss5sPmauzQGtlNcjIYQiA6tCjITiQT5nAsA1fn9ZkCbgRx3O5DYaYnfFhX5nxAvB8X5XaJ1dFdGPrr39JFyvaGH1IySQw-GUo9hkvjIC3bCJzX9W7KRyTzTBphsIsO5NkznQyUTJlhh7bgh01a2FRJolZ6fn4WgA_kvx1CbZ61AFViKlw3l_xaJD55ZrFM' }}
+                      style={styles.agencyLogo}
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.agencyLogoWrap, { backgroundColor: (() => {
+                    let hash = 0;
+                    for (let i = 0; i < agencyName.length; i++) {
+                      hash = agencyName.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const colors = ['#967BB6', '#52396f', '#6A5188', '#B29CCF', '#7b2cbf', '#9d4edd', '#c77dff'];
+                    const index = Math.abs(hash) % colors.length;
+                    return colors[index];
+                  })() }]}>
+                    <Text style={{ color: '#ffffff', fontFamily: 'Epilogue_700Bold', fontSize: 24 }}>
+                      {agencyName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.agencyCardMeta}>
+                  <Text style={styles.agencyCardTitle}>{agencyName}</Text>
+                  <Text style={styles.agencyCardSub}>
+                    {agencyName.toLowerCase().includes('odyssey') ? 'Premier High-Altitude Specialist' : 'Verified Platform Partner'}
                   </Text>
                 </View>
-              )}
-              <View style={styles.agencyCardMeta}>
-                <Text style={styles.agencyCardTitle}>{agencyName}</Text>
-                <Text style={styles.agencyCardSub}>
-                  {agencyName.toLowerCase().includes('odyssey') ? 'Premier High-Altitude Specialist' : 'Verified Platform Partner'}
-                </Text>
               </View>
+              <TouchableOpacity style={styles.viewProfileBtn} activeOpacity={0.8}>
+                <Text style={styles.viewProfileText}>VIEW PROFILE</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.viewProfileBtn} activeOpacity={0.8}>
-              <Text style={styles.viewProfileText}>VIEW PROFILE</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
 
         <View style={{ height: 140 }} />
@@ -803,19 +807,43 @@ export default function PackageDetailScreen({ navigation, route }) {
 
       {/* Sticky Bottom CTA */}
       <View style={[styles.bottomCTA, { paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16 }]}>
-        <TouchableOpacity
-          style={styles.ctaButton}
-          activeOpacity={0.9}
-          onPress={() => {
-            if (isTraveler) {
-              setCheckoutVisible(true);
-            } else {
+        {isTraveler ? (
+          <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+            <TouchableOpacity
+              style={[styles.ctaButton, { flex: 1, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#52396f', flexDirection: 'row', gap: 8 }]}
+              activeOpacity={0.8}
+              onPress={async () => {
+                try {
+                  const conv = await api.createConversation(fullPkg.id);
+                  navigation.navigate('ChatDetail', { conversation: conv });
+                } catch (err) {
+                  Alert.alert("Error", err.message || "Could not start chat.");
+                }
+              }}
+            >
+              <MaterialIcons name="forum" size={20} color="#52396f" />
+              <Text style={[styles.ctaButtonText, { color: '#52396f' }]}>Chat</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.ctaButton, { flex: 2 }]}
+              activeOpacity={0.9}
+              onPress={() => setCheckoutVisible(true)}
+            >
+              <Text style={styles.ctaButtonText}>Book Now</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.ctaButton}
+            activeOpacity={0.9}
+            onPress={() => {
               Alert.alert("Enquiry", "Please contact the agency directly or log in as traveler to book.");
-            }
-          }}
-        >
-          <Text style={styles.ctaButtonText}>{isTraveler ? "Book Now" : "Enquire Now"}</Text>
-        </TouchableOpacity>
+            }}
+          >
+            <Text style={styles.ctaButtonText}>Enquire Now</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Checkout Modal */}

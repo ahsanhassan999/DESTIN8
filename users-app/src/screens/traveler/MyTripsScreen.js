@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Dimensions, TextInput, ActivityIndicator, RefreshControl, Alert, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
@@ -12,6 +12,50 @@ export default function MyTripsScreen({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [activeBookingId, setActiveBookingId] = useState(null);
+  const [activeTripTitle, setActiveTripTitle] = useState('');
+
+  const handleCancelPress = (bookingId, tripTitle) => {
+    setActiveBookingId(bookingId);
+    setActiveTripTitle(tripTitle);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const performCancellation = async (bookingId, reason) => {
+    if (!reason || reason.trim().length < 3) {
+      Alert.alert("Reason Required", "Please provide a reason for cancellation (at least 3 characters).");
+      return;
+    }
+    try {
+      setLoading(true);
+      setCancelModalVisible(false);
+      const res = await api.cancelBooking(bookingId, reason.trim());
+      Alert.alert("Success", res.message || "Your booking has been cancelled successfully.");
+      await loadTrips(false);
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      Alert.alert("Error", err.message || "Failed to cancel booking. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => {
+    if (status === 'Confirmed') return [styles.statusBadge, styles.badgeConfirmed];
+    if (status === 'Cancelled') return [styles.statusBadge, styles.badgeCancelled];
+    if (status === 'Completed') return [styles.statusBadge, styles.badgeCompleted];
+    return [styles.statusBadge, styles.badgePending];
+  };
+
+  const getStatusTextStyle = (status) => {
+    if (status === 'Confirmed') return [styles.statusText, styles.textConfirmed];
+    if (status === 'Cancelled') return [styles.statusText, styles.textCancelled];
+    if (status === 'Completed') return [styles.statusText, styles.textCompleted];
+    return [styles.statusText, styles.textPending];
+  };
 
   const loadTrips = useCallback(async (showLoading = true) => {
     try {
@@ -26,7 +70,15 @@ export default function MyTripsScreen({ navigation }) {
         price: b.package_price
           ? (b.package_price < 10000 ? `$${b.package_price}` : `PKR ${b.package_price.toLocaleString()}`)
           : '—',
-        status: b.status === 'confirmed' ? 'Confirmed' : b.status === 'pending' ? 'Pending Review' : b.status,
+        status: b.status === 'confirmed' 
+          ? 'Confirmed' 
+          : b.status === 'pending' 
+            ? 'Pending Review' 
+            : b.status === 'cancelled'
+              ? 'Cancelled'
+              : b.status === 'completed'
+                ? 'Completed'
+                : b.status,
         img: b.package_image || b.package?.cover_image || null,
         agency: b.agency_name || b.package?.agency_name || 'Unknown Agency',
         startDate: b.travel_date || b.package?.departure_date || 'TBD',
@@ -117,27 +169,32 @@ export default function MyTripsScreen({ navigation }) {
         ) : (
           <View style={styles.list}>
             {filteredTrips.map(trip => {
-              const isConfirmed = trip.status === 'Confirmed';
+              const showCancel = trip.status !== 'Cancelled' && trip.status !== 'Completed';
               return (
-                <TouchableOpacity
-                  key={trip.bookingId}
-                  style={styles.card}
-                  activeOpacity={0.88}
-                  onPress={() => navigation.navigate('PackageDetail', { package: trip })}
-                >
-                  <Image source={{ uri: trip.img }} style={styles.img} />
+                <View key={trip.bookingId} style={styles.card}>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => navigation.navigate('PackageDetail', { package: trip })}
+                  >
+                    <Image source={{ uri: trip.img }} style={styles.img} />
+                  </TouchableOpacity>
                   
                   <View style={styles.content}>
                     <View style={styles.headerRow}>
-                      <Text style={styles.agency}>{trip.agency}</Text>
-                      <View style={[styles.statusBadge, isConfirmed ? styles.badgeConfirmed : styles.badgePending]}>
-                        <Text style={[styles.statusText, isConfirmed ? styles.textConfirmed : styles.textPending]}>
+                      <Text style={styles.agency}>Verified Booking</Text>
+                      <View style={getStatusBadgeStyle(trip.status)}>
+                        <Text style={getStatusTextStyle(trip.status)}>
                           {trip.status}
                         </Text>
                       </View>
                     </View>
 
-                    <Text style={styles.cardTitle}>{trip.title}</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('PackageDetail', { package: trip })}
+                    >
+                      <Text style={styles.cardTitle}>{trip.title}</Text>
+                    </TouchableOpacity>
                     
                     <View style={styles.metaRow}>
                       <View style={styles.metaItem}>
@@ -154,14 +211,67 @@ export default function MyTripsScreen({ navigation }) {
                       <Text style={styles.duration}>{trip.duration}</Text>
                       <Text style={styles.price}>{trip.price}</Text>
                     </View>
+
+                    {showCancel && (
+                      <TouchableOpacity
+                        style={styles.cancelBtn}
+                        onPress={() => handleCancelPress(trip.bookingId, trip.title)}
+                        activeOpacity={0.8}
+                      >
+                        <MaterialIcons name="cancel" size={16} color="#ba1a1a" />
+                        <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
         )}
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      <Modal
+        visible={cancelModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Cancel Booking</Text>
+            <Text style={styles.modalDesc}>
+              Please state the reason for your cancellation/refund request for "{activeTripTitle}".
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Reason (e.g. Schedule clash, emergency...)"
+              placeholderTextColor="#999"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline={true}
+              numberOfLines={3}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.modalBtnTextSecondary}>Keep Booking</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={() => performCancellation(activeBookingId, cancelReason)}
+              >
+                <Text style={styles.modalBtnTextPrimary}>Confirm Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -302,6 +412,10 @@ const styles = StyleSheet.create({
   },
   badgeConfirmed: { backgroundColor: 'rgba(150, 123, 182, 0.15)' },
   badgePending: { backgroundColor: 'rgba(89, 92, 93, 0.1)' },
+  badgeCancelled: { backgroundColor: 'rgba(186, 26, 26, 0.1)' },
+  textCancelled: { color: '#ba1a1a' },
+  badgeCompleted: { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+  textCompleted: { color: '#10b981' },
   statusText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 9,
@@ -309,6 +423,23 @@ const styles = StyleSheet.create({
   },
   textConfirmed: { color: '#967BB6' },
   textPending: { color: '#595c5d' },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(186, 26, 26, 0.2)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 14,
+    backgroundColor: 'rgba(186, 26, 26, 0.03)',
+  },
+  cancelBtnText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#ba1a1a',
+  },
 
   cardTitle: {
     fontFamily: 'Epilogue_700Bold',
@@ -333,5 +464,77 @@ const styles = StyleSheet.create({
     fontFamily: 'Epilogue_700Bold',
     fontSize: 18,
     color: '#52396f',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 20,
+    color: '#2c2f30',
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#595c5d',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  modalInput: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#2c2f30',
+    borderWidth: 1,
+    borderColor: 'rgba(82, 57, 111, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnSecondary: {
+    backgroundColor: '#F0EEF5',
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#ba1a1a',
+  },
+  modalBtnTextSecondary: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+    color: '#52396f',
+  },
+  modalBtnTextPrimary: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+    color: '#fff',
   },
 });

@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Platform, Animated, Keyboard, KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 const getPackageInitials = (pkgName) => {
   if (!pkgName) return 'PK';
@@ -31,10 +33,41 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(true);
   const scrollViewRef = useRef();
 
   // Keyboard-aware bottom padding using Animated
   const keyboardPadding = useRef(new Animated.Value(0)).current;
+
+  const fetchMessages = async (showLoading = false) => {
+    try {
+      if (showLoading) setLoading(true);
+      const data = await api.getMessages(conversation.id);
+      const mapped = (data || []).map(m => ({
+        id: m.id,
+        text: m.text,
+        isMe: m.is_me,
+        time: m.time,
+      }));
+      setMessages(mapped);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!conversation?.id) return;
+
+    fetchMessages(true);
+
+    const interval = setInterval(() => {
+      fetchMessages(false);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [conversation?.id]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -67,17 +100,24 @@ export default function ChatDetailScreen({ route, navigation }) {
     };
   }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
-    const newMsg = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      isMe: true,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMessages(prev => [...prev, newMsg]);
+    const textToSend = inputText.trim();
     setInputText('');
-    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+
+    try {
+      const response = await api.sendMessage(conversation.id, textToSend);
+      const newMsg = {
+        id: response.id,
+        text: response.text,
+        isMe: true,
+        time: response.time,
+      };
+      setMessages(prev => [...prev, newMsg]);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
   };
 
   // Header top padding
@@ -109,35 +149,40 @@ export default function ChatDetailScreen({ route, navigation }) {
 
       {/* Animated wrapper that lifts when keyboard appears */}
       <Animated.View style={[styles.flex, { paddingBottom: keyboardPadding }]}>
-        {/* Message list */}
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scroll}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {messages.map(msg => (
-            <View
-              key={msg.id}
-              style={[styles.msgRow, msg.isMe ? styles.msgRowMe : styles.msgRowOther]}
-            >
-              <View style={[
-                styles.bubble,
-                msg.isMe
-                  ? [styles.bubbleMe, { backgroundColor: primaryColor }]
-                  : styles.bubbleOther
-              ]}>
-                <Text style={[styles.msgText, msg.isMe ? styles.msgTextMe : styles.msgTextOther]}>
-                  {msg.text}
-                </Text>
-                <Text style={[styles.msgTime, msg.isMe ? styles.msgTimeMe : styles.msgTimeOther]}>
-                  {msg.time}
-                </Text>
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={primaryColor} />
+          </View>
+        ) : (
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scroll}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {messages.map(msg => (
+              <View
+                key={msg.id}
+                style={[styles.msgRow, msg.isMe ? styles.msgRowMe : styles.msgRowOther]}
+              >
+                <View style={[
+                  styles.bubble,
+                  msg.isMe
+                    ? [styles.bubbleMe, { backgroundColor: primaryColor }]
+                    : styles.bubbleOther
+                ]}>
+                  <Text style={[styles.msgText, msg.isMe ? styles.msgTextMe : styles.msgTextOther]}>
+                    {msg.text}
+                  </Text>
+                  <Text style={[styles.msgTime, msg.isMe ? styles.msgTimeMe : styles.msgTimeOther]}>
+                    {msg.time}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Input bar */}
         <View style={[styles.inputArea, { paddingBottom: (insets.bottom > 0 ? insets.bottom : 8) + 12 }]}>

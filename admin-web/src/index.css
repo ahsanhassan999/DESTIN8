@@ -456,3 +456,92 @@ tbody td { padding: 13px 16px; font-size: 13.5px; color: var(--color-text); vert
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .search-bar input { width: 140px; }
 }
+
+/* ─── Global Modals ────────────────────────────────────────────────────────── */
+.pay-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.pay-modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+}
+
+.pay-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pay-modal-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.pay-modal-close {
+  background: var(--color-surface-hover);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pay-modal-close:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.pay-modal-desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.pay-modal-textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.pay-modal-textarea:focus {
+  border-color: var(--color-plum);
+}
+
+.pay-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+

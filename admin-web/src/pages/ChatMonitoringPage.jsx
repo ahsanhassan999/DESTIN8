@@ -1,41 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { mockConversations } from '../mockData';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import './ChatMonitoringPage.css';
+import { useChatPopOut } from '../context/ChatPopOutContext';
 
-// ─── Mock Messages ────────────────────────────────────────────────────────────
-const INITIAL_MESSAGES = {
-  c1: [
-    { id: 1, sender: 'traveler', text: 'Hello! I am planning to join the K2 Base Camp Expedition next month.', time: '10:15 AM' },
-    { id: 2, sender: 'agency',   text: 'Hi Ahmed! That is wonderful. The K2 Base Camp trek is a phenomenal choice. The next departure is on June 25th.', time: '10:18 AM' },
-    { id: 3, sender: 'traveler', text: 'Is there a group discount? We have a team of 4 people planning to book.', time: '10:20 AM' },
-    { id: 4, sender: 'agency',   text: 'Yes, absolutely! We offer a 10% discount for groups of 4 or more.', time: '10:22 AM' },
-    { id: 5, sender: 'traveler', text: 'Perfect. What details do you need for booking?', time: '10:25 AM' },
-    { id: 6, sender: 'agency',   text: 'Just your passport copies and a 50% deposit. Please transfer the remaining to my personal account at +92-311-2345678.', time: '10:28 AM' },
-    { id: 7, sender: 'system',   text: 'Warning: The agency requested payment outside the platform. Sharing direct bank details is against platform terms.', time: '10:29 AM', isWarning: true },
-    { id: 8, sender: 'traveler', text: 'Oh really? Is that the standard process?', time: '10:30 AM' },
-  ],
-  c2: [
-    { id: 1, sender: 'traveler', text: 'Hi Blue Horizon team, does the Maldives Escape include a water villa stay?', time: '09:00 AM' },
-    { id: 2, sender: 'agency',   text: 'Yes, Ali! The package includes 3 nights in a beach villa and 2 nights in an overwater pool villa.', time: '09:05 AM' },
-    { id: 3, sender: 'traveler', text: 'Great. I have completed the deposit payment on the app.', time: '09:12 AM' },
-    { id: 4, sender: 'agency',   text: 'Received! We have confirmed your booking.', time: '09:15 AM' },
-  ],
-  c3: [
-    { id: 1, sender: 'traveler', text: 'Hi Zara, I wanted to enquire about the Swat Valley Spring Bloom Tour.', time: 'Yesterday' },
-    { id: 2, sender: 'agency',   text: 'Hello Usman! The Swat Spring Bloom is beautiful right now. What details can I help with?', time: 'Yesterday' },
-    { id: 3, sender: 'traveler', text: 'What is included in the price?', time: 'Yesterday' },
-  ],
-  c4: [
-    { id: 1, sender: 'traveler', text: 'Hello Nadia, I booked the Dubai Weekend Getaway. Can I cancel for a refund?', time: 'Yesterday' },
-    { id: 2, sender: 'agency',   text: 'Hi Maria! Cancellation is free up to 7 days before departure. After that a 10% fee applies.', time: 'Yesterday' },
-  ],
-  c5: [
-    { id: 1, sender: 'traveler', text: 'Hello, what are the safety guidelines for the Hunza Valley Luxury Retreat?', time: '2 days ago' },
-    { id: 2, sender: 'agency',   text: 'Hi Fatima! The tour is fully guided by certified mountaineers. First aid kits provided.', time: '2 days ago' },
-    { id: 3, sender: 'traveler', text: 'Awesome! I will book now.', time: '2 days ago' },
-  ],
+// ─── Resolve Real IDs Helper ──────────────────────────────────────────────────
+export const getChatDetails = (conv) => {
+  if (!conv) return { chatId: '', travelerId: '', travelerName: '', agencyId: '', agencyName: '', packageId: '', packageName: '' };
+  return {
+    chatId: conv.id,
+    travelerName: conv.traveler,
+    travelerId: conv.traveler_id || '',
+    agencyName: conv.agency,
+    agencyId: conv.agency_id || '',
+    packageName: conv.package,
+    packageId: conv.package_id || ''
+  };
 };
+import './ChatMonitoringPage.css';
 
 const PRESET_WARNINGS = [
   'Security Check: Sharing direct phone numbers or bank details is prohibited.',
@@ -43,22 +24,20 @@ const PRESET_WARNINGS = [
   'Moderation Notice: Inappropriate language detected. Please maintain professional communication.',
 ];
 
-const DEFAULT_TAGS = [
-  { id: 't1', label: 'Off-Platform Payment', color: '#ef4444' },
-  { id: 't2', label: 'Refund Request',        color: '#f59e0b' },
-  { id: 't3', label: 'Suspicious Activity',   color: '#8b5cf6' },
-  { id: 't4', label: 'Resolved',              color: '#10b981' },
-  { id: 't5', label: 'Needs Follow-up',       color: '#0ea5e9' },
-];
-
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function IconChats()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>; }
 function IconFlagged()  { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>; }
 function IconUnread()   { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 function IconWarnings() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>; }
-function IconTagsIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>; }
-function IconFilter()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>; }
-function IconInfo()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>; }
+export function IconTagsIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>; }
+export function IconFilter()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>; }
+export function IconInfo()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>; }
+function IconMinimize() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
+function IconMaximize() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg>; }
+function IconExpand()   { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></svg>; }
+function IconDock()     { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>; }
+function IconClose()    { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>; }
+
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 function ConvContextMenu({ menu, onClose, onAction, panelMode }) {
@@ -112,7 +91,7 @@ function ConvContextMenu({ menu, onClose, onAction, panelMode }) {
         <span className="ctx-icon">🚩</span> Flag / Unflag
       </button>
       <button className="ctx-item" onClick={() => onAction('tag', menu.convId)}>
-        <span className="ctx-icon">🏷</span> Assign tags…
+        <span className="ctx-icon"><IconTagsIcon /></span> Assign tags…
       </button>
     </div>
   );
@@ -127,6 +106,7 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
 
   const activeConv    = conversations.find(c => c.id === activeTabId);
   const activeMessages = messagesDb[activeTabId] || [];
+  const details = getChatDetails(activeConv);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -226,110 +206,113 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
           </div>
 
           <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <div className="chat-messages-body">
-                <div className="chat-alert-banner">🛡️ Administrator read-only monitoring mode</div>
-                <div className="chat-messages-timeline">
-                  {activeMessages.map(msg => {
-                    if (msg.sender === 'system') return (
-                      <div key={msg.id} className="msg-row msg-system-warning">
-                        <div className="system-warning-bubble">
-                          <span className="system-warning-icon">⚠️ SECURITY WARNING</span>
-                          <p className="system-warning-text">{msg.text}</p>
-                          <span className="system-warning-time">{msg.time}</span>
-                        </div>
-                      </div>
-                    );
-                    const isTraveler = msg.sender === 'traveler';
-                    return (
-                      <div key={msg.id} className={`msg-row ${isTraveler ? 'msg-row-left' : 'msg-row-right'}`}>
-                        <div className="msg-avatar-wrap">
-                          <div className={`avatar avatar-xs ${isTraveler ? 'avatar-blue' : 'avatar-plum'}`}>
-                            {isTraveler ? activeConv.traveler.charAt(0) : activeConv.agency.charAt(0)}
-                          </div>
-                        </div>
-                        <div className="msg-content-wrap">
-                          <span className="msg-sender-name">{isTraveler ? activeConv.traveler : activeConv.agency} <span className="msg-sender-role">({isTraveler ? 'Traveler' : 'Agency'})</span></span>
-                          <div className="msg-bubble">
-                            <p className="msg-text">{msg.text}</p>
-                            <span className="msg-time">{msg.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
+            {showInfo ? (
+              <div className="chat-room-info-tab" onClick={e => e.stopPropagation()}>
+                <div className="info-tab-header">
+                  <span className="info-tab-title">Chat Information</span>
+                  <button className="btn-info-close" onClick={() => setShowInfo(false)}>✕ Close & Return to Chat</button>
                 </div>
-              </div>
-
-              <div className="chat-room-footer">
-                <div className="preset-warnings-row">
-                  <span className="presets-label">Quick:</span>
-                  {PRESET_WARNINGS.map((p, i) => (
-                    <button key={i} className="preset-btn" onClick={() => onSendWarning(activeConv.id, p)}>
-                      {p.slice(0, 28)}…
+                <div className="info-tab-content-grid">
+                  <div className="info-tab-section">
+                    <span className="info-tab-section-title">Record IDs</span>
+                    <div className="info-id-group">
+                      <div className="info-id-item">
+                        <span className="info-id-label">Chat ID</span>
+                        <span className="info-id-val">{details.chatId}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Traveler Name</span>
+                        <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{details.travelerName}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Traveler ID</span>
+                        <span className="info-id-val">{details.travelerId}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Agency Name</span>
+                        <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{details.agencyName}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Agency ID</span>
+                        <span className="info-id-val">{details.agencyId}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Tour Package Name</span>
+                        <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{details.packageName}</span>
+                      </div>
+                      <div className="info-id-item">
+                        <span className="info-id-label">Package ID</span>
+                        <span className="info-id-val">{details.packageId}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="info-tab-section info-tab-section--moderation">
+                    <span className="info-tab-section-title">Moderation Actions</span>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', margin: '4px 0 12px' }}>
+                      Flag this conversation for review or initiate an immediate package takedown if policy violations are detected.
+                    </p>
+                    <button className="btn-moderate-pkg" style={{ width: '100%', padding: '10px 14px', fontSize: '0.78rem' }} onClick={() => onInitiateTakedown(activeConv)}>
+                      Moderate Tour
                     </button>
-                  ))}
-                </div>
-                <div className="custom-warning-input-wrap">
-                  <input
-                    className="custom-warning-input"
-                    placeholder="Type a custom system warning…"
-                    value={warningText}
-                    onChange={e => setWarningText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && warningText.trim()) { onSendWarning(activeConv.id, warningText); setWarningText(''); } }}
-                  />
-                  <button className="btn-send-warning" disabled={!warningText.trim()} onClick={() => { onSendWarning(activeConv.id, warningText); setWarningText(''); }}>Send Warning</button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {showInfo && (
-              <div className="chat-room-info-sidebar" onClick={e => e.stopPropagation()}>
-                <div className="info-sidebar-header">
-                  <span className="info-sidebar-title">Chat Information</span>
-                  <button className="btn-info-close" onClick={() => setShowInfo(false)}>✕</button>
-                </div>
-
-                <div className="info-sidebar-section">
-                  <span className="info-sidebar-section-title">Record IDs</span>
-                  <div className="info-id-group">
-                    <div className="info-id-item">
-                      <span className="info-id-label">Chat ID</span>
-                      <span className="info-id-val">{activeConv.id}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Traveler Name</span>
-                      <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{activeConv.traveler}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Traveler ID</span>
-                      <span className="info-id-val">T-{activeConv.id.replace('c', 'usr')}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Agency Name</span>
-                      <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{activeConv.agency}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Agency ID</span>
-                      <span className="info-id-val">AG-{activeConv.id.replace('c', 'age')}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Tour Package Name</span>
-                      <span className="info-id-val" style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{activeConv.package}</span>
-                    </div>
-                    <div className="info-id-item">
-                      <span className="info-id-label">Package ID</span>
-                      <span className="info-id-val">PKG-{activeConv.id.replace('c', 'pkg')}</span>
-                    </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <div className="chat-messages-body">
+                  <div className="chat-alert-banner">🛡️ Administrator read-only monitoring mode</div>
+                  <div className="chat-messages-timeline">
+                    {activeMessages.map(msg => {
+                      if (msg.sender === 'system') return (
+                        <div key={msg.id} className="msg-row msg-system-warning">
+                          <div className="system-warning-bubble">
+                            <span className="system-warning-icon">⚠️ SECURITY WARNING</span>
+                            <p className="system-warning-text">{msg.text}</p>
+                            <span className="system-warning-time">{msg.time}</span>
+                          </div>
+                        </div>
+                      );
+                      const isTraveler = msg.sender === 'traveler';
+                      return (
+                        <div key={msg.id} className={`msg-row ${isTraveler ? 'msg-row-left' : 'msg-row-right'}`}>
+                          <div className="msg-avatar-wrap">
+                            <div className={`avatar avatar-xs ${isTraveler ? 'avatar-blue' : 'avatar-plum'}`}>
+                              {isTraveler ? activeConv.traveler.charAt(0) : activeConv.agency.charAt(0)}
+                            </div>
+                          </div>
+                          <div className="msg-content-wrap">
+                            <span className="msg-sender-name">{isTraveler ? activeConv.traveler : activeConv.agency} <span className="msg-sender-role">({isTraveler ? 'Traveler' : 'Agency'})</span></span>
+                            <div className="msg-bubble">
+                              <p className="msg-text">{msg.text}</p>
+                              <span className="msg-time">{msg.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
 
-                <div className="info-sidebar-section">
-                  <span className="info-sidebar-section-title">Moderation</span>
-                  <button className="btn-moderate-pkg" style={{ width: '100%', margin: '4px 0 0 0' }} onClick={() => onInitiateTakedown(activeConv)}>
-                    Moderate Tour
-                  </button>
+                <div className="chat-room-footer">
+                  <div className="preset-warnings-row">
+                    <span className="presets-label">Quick:</span>
+                    {PRESET_WARNINGS.map((p, i) => (
+                      <button key={i} className="preset-btn" onClick={() => onSendWarning(activeConv.id, p)}>
+                        {p.slice(0, 28)}…
+                      </button>
+                    ))}
+                  </div>
+                  <div className="custom-warning-input-wrap">
+                    <input
+                      className="custom-warning-input"
+                      placeholder="Type a custom system warning…"
+                      value={warningText}
+                      onChange={e => setWarningText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && warningText.trim()) { onSendWarning(activeConv.id, warningText); setWarningText(''); } }}
+                    />
+                    <button className="btn-send-warning" disabled={!warningText.trim()} onClick={() => { onSendWarning(activeConv.id, warningText); setWarningText(''); }}>Send Warning</button>
+                  </div>
                 </div>
               </div>
             )}
@@ -340,74 +323,188 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
   );
 }
 
-// ─── Pop-Out Window ───────────────────────────────────────────────────────────
-function PopOutWindow({ conv, messages, flaggedIds, onToggleFlag, onSendWarning, onClose, onDock, index }) {
+export function PopOutWindow({ conv, messages, flaggedIds, onToggleFlag, onSendWarning, onClose, onDock, index, onInitiateTakedown, tags, convTags, toggleConvTag }) {
   const [warningText, setWarningText] = useState('');
   const [minimized, setMinimized]     = useState(false);
-  const [pos, setPos]   = useState({ x: Math.max(20, window.innerWidth - 380 - index * 16), y: Math.max(20, window.innerHeight - 480 - index * 16) });
-  const [drag, setDrag] = useState(null);
+  const [showInfo, setShowInfo]       = useState(false);
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
   const messagesEndRef  = useRef(null);
+
+  const [windowWidth, setWindowWidth] = useState(300);
+  const [windowHeight, setWindowHeight] = useState(400);
+  const { setFullTranscriptConvId } = useChatPopOut();
+
+  const startResize = useCallback((e, direction) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = windowWidth;
+    const startHeight = windowHeight;
+
+    const handleMouseMove = (moveEvent) => {
+      if (direction === 'n' || direction === 'nw') {
+        const deltaY = startY - moveEvent.clientY;
+        setWindowHeight(Math.max(180, Math.min(800, startHeight + deltaY)));
+      }
+      if (direction === 'w' || direction === 'nw') {
+        const deltaX = startX - moveEvent.clientX;
+        setWindowWidth(Math.max(260, Math.min(600, startWidth + deltaX)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [windowWidth, windowHeight]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  useEffect(() => {
-    if (!drag) return;
-    const onMove = e => setPos({ x: e.clientX - drag.ox, y: e.clientY - drag.oy });
-    const onUp   = () => setDrag(null);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',   onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, [drag]);
-
   const isFlagged = flaggedIds.has(conv.id);
+  const details = getChatDetails(conv);
 
   return (
-    <div className={`pop-out-window ${minimized ? 'pop-out-minimized' : ''}`} style={{ left: pos.x, top: pos.y }}>
-      {/* Drag handle header */}
-      <div className="pop-out-header" onMouseDown={e => setDrag({ ox: e.clientX - pos.x, oy: e.clientY - pos.y })}>
+    <div
+      className={`pop-out-window ${minimized ? 'pop-out-minimized' : ''}`}
+      style={{
+        width: `${windowWidth}px`,
+        height: minimized ? '38px' : `${windowHeight}px`
+      }}
+    >
+      {/* Resize Handles (only active when not minimized) */}
+      {!minimized && (
+        <>
+          <div className="pop-out-resize-handle n" onMouseDown={e => startResize(e, 'n')} />
+          <div className="pop-out-resize-handle w" onMouseDown={e => startResize(e, 'w')} />
+          <div className="pop-out-resize-handle nw" onMouseDown={e => startResize(e, 'nw')} />
+        </>
+      )}
+
+      {/* Clickable header to toggle minimize */}
+      <div className="pop-out-header" onClick={() => setMinimized(m => !m)}>
         <div className="pop-out-title">
           <span className="pop-out-live-dot" />
           <div className="avatar avatar-xs avatar-blue">{conv.traveler.charAt(0)}</div>
           <span>{conv.traveler} ↔ {conv.agency.split(' ')[0]}</span>
           {isFlagged && <span style={{ fontSize: '0.65rem' }}>🚩</span>}
         </div>
-        <div className="pop-out-controls">
-          <button className="pop-out-btn" title={minimized ? 'Restore' : 'Minimize'} onClick={() => setMinimized(m => !m)}>{minimized ? '▲' : '▼'}</button>
-          <button className="pop-out-btn" title="Dock to Panel A" onClick={() => onDock(conv.id)}>⬛</button>
-          <button className="pop-out-btn pop-out-close-btn" title="Close" onClick={() => onClose(conv.id)}>✕</button>
+        <div className="pop-out-controls" onClick={e => e.stopPropagation()}>
+          <button className="pop-out-btn" title="Open Full Transcript" onClick={() => setFullTranscriptConvId(conv.id)}>
+            <IconExpand />
+          </button>
+          <button className="pop-out-btn" title={minimized ? 'Restore' : 'Minimize'} onClick={() => setMinimized(m => !m)}>
+            {minimized ? <IconMaximize /> : <IconMinimize />}
+          </button>
+          <button className="pop-out-btn" title="Dock to Panel A" onClick={() => onDock(conv.id)}>
+            <IconDock />
+          </button>
+          <button className="pop-out-btn pop-out-close-btn" title="Close" onClick={() => onClose(conv.id)}>
+            <IconClose />
+          </button>
         </div>
       </div>
 
       {!minimized && (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, position: 'relative' }}>
           <div className="pop-out-pkg">{conv.package}</div>
-          <div className="pop-out-messages">
-            {messages.map(msg => {
-              if (msg.sender === 'system') return (
-                <div key={msg.id} className="msg-system-warning" style={{ maxWidth: '100%' }}>
-                  <div className="system-warning-bubble" style={{ padding: '8px 12px' }}>
-                    <span className="system-warning-icon" style={{ fontSize: '0.65rem' }}>⚠️ WARNING</span>
-                    <p className="system-warning-text" style={{ fontSize: '0.7rem' }}>{msg.text}</p>
-                  </div>
+          
+          {showInfo ? (
+            <div className="pop-out-info-overlay" onClick={e => e.stopPropagation()}>
+              <div className="pop-out-info-header">
+                <h4>Chat Information</h4>
+                <button className="pop-out-info-close" onClick={() => setShowInfo(false)}>✕</button>
+              </div>
+              <div className="pop-out-info-content">
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Chat ID</span>
+                  <span className="pop-out-id-val">{details.chatId}</span>
                 </div>
-              );
-              const isT = msg.sender === 'traveler';
-              return (
-                <div key={msg.id} className={`msg-row ${isT ? 'msg-row-left' : 'msg-row-right'}`} style={{ maxWidth: '92%' }}>
-                  <div className={`avatar avatar-xs ${isT ? 'avatar-blue' : 'avatar-plum'}`}>{isT ? conv.traveler.charAt(0) : conv.agency.charAt(0)}</div>
-                  <div className="msg-content-wrap">
-                    <div className="msg-bubble" style={{ padding: '7px 11px' }}>
-                      <p className="msg-text" style={{ fontSize: '0.75rem' }}>{msg.text}</p>
-                      <span className="msg-time">{msg.time}</span>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Traveler Name</span>
+                  <span className="pop-out-id-val" style={{ fontWeight: 600 }}>{details.travelerName}</span>
+                </div>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Traveler ID</span>
+                  <span className="pop-out-id-val">{details.travelerId}</span>
+                </div>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Agency Name</span>
+                  <span className="pop-out-id-val" style={{ fontWeight: 600 }}>{details.agencyName}</span>
+                </div>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Agency ID</span>
+                  <span className="pop-out-id-val">{details.agencyId}</span>
+                </div>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Tour Package Name</span>
+                  <span className="pop-out-id-val" style={{ fontWeight: 600 }}>{details.packageName}</span>
+                </div>
+                <div className="pop-out-id-item">
+                  <span className="pop-out-id-label">Package ID</span>
+                  <span className="pop-out-id-val">{details.packageId}</span>
+                </div>
+                
+                <div className="pop-out-moderation-section">
+                  <button className="btn-moderate-pkg" style={{ width: '100%', marginTop: 8 }} onClick={() => onInitiateTakedown(conv)}>
+                    Moderate Tour
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="pop-out-messages">
+              {messages.map(msg => {
+                if (msg.sender === 'system') return (
+                  <div key={msg.id} className="msg-system-warning" style={{ maxWidth: '100%' }}>
+                    <div className="system-warning-bubble" style={{ padding: '8px 12px' }}>
+                      <span className="system-warning-icon" style={{ fontSize: '0.65rem' }}>⚠️ WARNING</span>
+                      <p className="system-warning-text" style={{ fontSize: '0.7rem' }}>{msg.text}</p>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
+                );
+                const isT = msg.sender === 'traveler';
+                return (
+                  <div key={msg.id} className={`msg-row ${isT ? 'msg-row-left' : 'msg-row-right'}`} style={{ maxWidth: '92%' }}>
+                    <div className={`avatar avatar-xs ${isT ? 'avatar-blue' : 'avatar-plum'}`}>{isT ? conv.traveler.charAt(0) : conv.agency.charAt(0)}</div>
+                    <div className="msg-content-wrap">
+                      <div className="msg-bubble" style={{ padding: '7px 11px' }}>
+                        <p className="msg-text" style={{ fontSize: '0.75rem' }}>{msg.text}</p>
+                        <span className="msg-time">{msg.time}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+
+          {showTagDropdown && (
+            <div className="pop-out-tag-dropdown" onClick={e => e.stopPropagation()}>
+              <div className="tag-dropdown-header">
+                <span>Assign Tags</span>
+                <button className="tag-dropdown-close" onClick={() => setShowTagDropdown(false)}>✕</button>
+              </div>
+              <div className="tag-dropdown-list">
+                {tags.map(tag => (
+                  <label key={tag.id} className="tag-dropdown-item">
+                    <input type="checkbox" checked={(convTags[conv.id] || []).includes(tag.id)} onChange={() => toggleConvTag(conv.id, tag.id)} />
+                    <span className="tag-dot" style={{ background: tag.color }} />
+                    <span>{tag.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pop-out-footer">
-            <button className={`pop-out-flag-btn ${isFlagged ? 'active' : ''}`} onClick={() => onToggleFlag(conv.id)}>{isFlagged ? '🚩' : '🏳️'}</button>
+            <button className={`pop-out-flag-btn ${isFlagged ? 'pop-out-flag-btn--red-active' : ''}`} onClick={() => onToggleFlag(conv.id)} title="Flag / Unflag">{isFlagged ? '🚩' : '🏳️'}</button>
+            <button className={`pop-out-flag-btn ${showTagDropdown ? 'active' : ''}`} onClick={() => { setShowTagDropdown(prev => !prev); setShowInfo(false); }} title="Assign Tags"><IconTagsIcon /></button>
+            <button className={`pop-out-flag-btn ${showInfo ? 'active' : ''}`} onClick={() => { setShowInfo(prev => !prev); setShowTagDropdown(false); }} title="Chat Info"><IconInfo /></button>
             <input
               className="pop-out-input"
               placeholder="Send system warning…"
@@ -417,7 +514,7 @@ function PopOutWindow({ conv, messages, flaggedIds, onToggleFlag, onSendWarning,
             />
             <button className="pop-out-send-btn" disabled={!warningText.trim()} onClick={() => { onSendWarning(conv.id, warningText); setWarningText(''); }}>⚠</button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -425,8 +522,26 @@ function PopOutWindow({ conv, messages, flaggedIds, onToggleFlag, onSendWarning,
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ChatMonitoringPage() {
-  const [conversations, setConversations] = useState([]);
-  const [messagesDb,    setMessagesDb]    = useState(INITIAL_MESSAGES);
+  const {
+    conversations,
+    setConversations,
+    messagesDb,
+    flaggedIds,
+    tags,
+    setTags,
+    convTags,
+    setConvTags,
+    toggleFlag,
+    toggleConvTag,
+    handleSendWarning,
+    popOuts,
+    openPopOut,
+    handleInitiateTakedown,
+    setActivePanelChats,
+  } = useChatPopOut();
+
+  const [searchParams] = useSearchParams();
+  const dockId = searchParams.get('dock');
 
   // Panel system
   const [panelMode, setPanelMode] = useState('single'); // 'single' | 'split'
@@ -435,8 +550,13 @@ export default function ChatMonitoringPage() {
     B: { tabs: [], activeTab: null },
   });
 
-  // Pop-outs
-  const [popOuts, setPopOuts] = useState([]);
+  // Synchronize active panel tabs with context for message polling
+  useEffect(() => {
+    setActivePanelChats({
+      A: panels.A.activeTab,
+      B: panelMode === 'split' ? panels.B.activeTab : null
+    });
+  }, [panels.A.activeTab, panels.B.activeTab, panelMode, setActivePanelChats]);
 
   // Context menu
   const [contextMenu, setContextMenu] = useState(null);
@@ -454,40 +574,20 @@ export default function ChatMonitoringPage() {
     return tag ? tag.label : 'Filter';
   };
 
-  // Flags & tags
-  const [flaggedIds,    setFlaggedIds]    = useState(new Set(['c1']));
-  const [tags,          setTags]          = useState(DEFAULT_TAGS);
-  const [convTags,      setConvTags]      = useState({ c1: ['t1', 't3'] });
+  // Flags & tags modal state (context menu tags are global)
   const [showTagModal,  setShowTagModal]  = useState(false);
   const [showCreateTag, setShowCreateTag] = useState(false);
   const [newTagLabel,   setNewTagLabel]   = useState('');
   const [newTagColor,   setNewTagColor]   = useState('#6366f1');
   const [tagAssignConvId, setTagAssignConvId] = useState(null);
 
-  // Takedown modal
-  const [showTakedownModal, setShowTakedownModal] = useState(false);
-  const [takedownConv,      setTakedownConv]      = useState(null);
-  const [takedownPkgId,     setTakedownPkgId]     = useState(null);
-  const [takedownPkgTitle,  setTakedownPkgTitle]  = useState('');
-  const [takedownReason,    setTakedownReason]    = useState('');
+
   const autoOpenedRef = useRef(false);
-
-  useEffect(() => { setConversations(mockConversations); }, []);
-
-  // On load: auto-open the first flagged chat in Panel A
-  useEffect(() => {
-    if (conversations.length === 0 || autoOpenedRef.current) return;
-    const firstFlagged = conversations.find(c => flaggedIds.has(c.id));
-    const target = firstFlagged || conversations[0];
-    openInPanel('A', target.id, false);
-    autoOpenedRef.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const markAsRead = useCallback((convId) => {
     setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread: false } : c));
-  }, []);
+  }, [setConversations]);
 
   const openInPanel = useCallback((panelId, convId, addTab = true) => {
     setPanels(prev => {
@@ -509,6 +609,20 @@ export default function ChatMonitoringPage() {
     });
     markAsRead(convId);
   }, [markAsRead]);
+
+  // On load: auto-open the docked search param chat or the first flagged chat
+  useEffect(() => {
+    if (conversations.length === 0 || autoOpenedRef.current) return;
+    if (dockId && conversations.some(c => c.id === dockId)) {
+      openInPanel('A', dockId, false);
+    } else {
+      const firstFlagged = conversations.find(c => flaggedIds.has(c.id));
+      const target = firstFlagged || conversations[0];
+      openInPanel('A', target.id, false);
+    }
+    autoOpenedRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, dockId, openInPanel]);
 
   const handleTabChange = useCallback((panelId, convId) => {
     setPanels(prev => ({ ...prev, [panelId]: { ...prev[panelId], activeTab: convId } }));
@@ -554,8 +668,7 @@ export default function ChatMonitoringPage() {
         openInPanel('B', convId, false);
         break;
       case 'popout':
-        setPopOuts(prev => prev.includes(convId) ? prev : [...prev, convId]);
-        markAsRead(convId);
+        openPopOut(convId);
         break;
       case 'flag':
         toggleFlag(convId);
@@ -565,24 +678,12 @@ export default function ChatMonitoringPage() {
         break;
       default: break;
     }
-  }, [openInPanel, markAsRead, tagAssignConvId]);
+  }, [openInPanel, tagAssignConvId, openPopOut, toggleFlag]);
 
   // Left-click: open normally by replacing the active tab
   const handleLeftClick = useCallback((convId) => {
     openInPanel('A', convId, false);
   }, [openInPanel]);
-
-  // ─── Flags & Tags ─────────────────────────────────────────────────────────
-  const toggleFlag = (id) => {
-    setFlaggedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  };
-
-  const toggleConvTag = (convId, tagId) => {
-    setConvTags(prev => {
-      const ex = prev[convId] || [];
-      return { ...prev, [convId]: ex.includes(tagId) ? ex.filter(i => i !== tagId) : [...ex, tagId] };
-    });
-  };
 
   const handleCreateTag = () => {
     if (!newTagLabel.trim()) return;
@@ -595,32 +696,9 @@ export default function ChatMonitoringPage() {
     setConvTags(prev => { const u = { ...prev }; Object.keys(u).forEach(k => { u[k] = u[k].filter(id => id !== tagId); }); return u; });
   };
 
-  // ─── Warnings ─────────────────────────────────────────────────────────────
-  const handleSendWarning = useCallback((convId, text) => {
-    if (!text?.trim()) return;
-    const msg = { id: Date.now(), sender: 'system', text: text.trim(), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isWarning: true };
-    setMessagesDb(prev => ({ ...prev, [convId]: [...(prev[convId] || []), msg] }));
-    setConversations(prev => prev.map(c => c.id === convId ? { ...c, lastMsg: `⚠ ${text.trim()}` } : c));
-  }, []);
 
-  // ─── Takedown ──────────────────────────────────────────────────────────────
-  const handleInitiateTakedown = useCallback(async (conv) => {
-    try {
-      const packages = await api.getPackages();
-      const match = packages.find(p => p.title.toLowerCase().includes(conv.package.toLowerCase()) || conv.package.toLowerCase().includes(p.title.toLowerCase()));
-      if (match) { setTakedownConv(conv); setTakedownPkgId(match.id); setTakedownPkgTitle(match.title); setTakedownReason(''); setShowTakedownModal(true); }
-      else alert(`Could not find package "${conv.package}" in the database.`);
-    } catch (err) { alert('Error: ' + err.message); }
-  }, []);
 
-  const handleConfirmTakedown = async () => {
-    if (!takedownPkgId || !takedownReason.trim()) return;
-    try {
-      await api.takedownPackage(takedownPkgId, takedownReason.trim());
-      alert(`Package "${takedownPkgTitle}" taken down.`);
-      setShowTakedownModal(false);
-    } catch (err) { alert('Takedown failed: ' + err.message); }
-  };
+
 
   // ─── Filtered Conversation List ────────────────────────────────────────────
   const filteredConversations = conversations.filter(c => {
@@ -883,20 +961,7 @@ export default function ChatMonitoringPage() {
       {/* ─── Context Menu ────────────────────────────────────────────────── */}
       <ConvContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} onAction={handleContextAction} panelMode={panelMode} />
 
-      {/* ─── Pop-Out Windows ─────────────────────────────────────────────── */}
-      {popOuts.map((convId, i) => {
-        const conv = conversations.find(c => c.id === convId);
-        if (!conv) return null;
-        return (
-          <PopOutWindow key={convId} conv={conv} messages={messagesDb[convId] || []} index={i}
-            flaggedIds={flaggedIds}
-            onToggleFlag={toggleFlag}
-            onSendWarning={handleSendWarning}
-            onClose={id => setPopOuts(prev => prev.filter(p => p !== id))}
-            onDock={id => { setPopOuts(prev => prev.filter(p => p !== id)); openInPanel('A', id, true); }}
-          />
-        );
-      })}
+
 
       {/* ─── Manage Tags Modal ────────────────────────────────────────────── */}
       {showTagModal && (
@@ -941,23 +1006,7 @@ export default function ChatMonitoringPage() {
         </div>
       )}
 
-      {/* ─── Takedown Modal ───────────────────────────────────────────────── */}
-      {showTakedownModal && (
-        <div className="pay-modal-overlay" onClick={() => setShowTakedownModal(false)}>
-          <div className="pay-modal" onClick={e => e.stopPropagation()}>
-            <div className="pay-modal-header">
-              <h3>Moderate Tour Package</h3>
-              <button className="pay-modal-close" onClick={() => setShowTakedownModal(false)}>✕</button>
-            </div>
-            <p className="pay-modal-desc">Initiating takedown for <strong>{takedownPkgTitle}</strong>. Provide the policy violation reason.</p>
-            <textarea className="pay-modal-textarea" rows={4} placeholder="Policy violation reasons…" value={takedownReason} onChange={e => setTakedownReason(e.target.value)} />
-            <div className="pay-modal-actions">
-              <button className="pay-btn pay-btn-neutral" onClick={() => setShowTakedownModal(false)}>Cancel</button>
-              <button className="pay-btn pay-btn-danger" disabled={!takedownReason.trim()} onClick={handleConfirmTakedown}>Confirm Takedown</button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -6,6 +6,7 @@ export default function PackageModerationPage() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
 
   // Modal and Moderation States
@@ -36,9 +37,16 @@ export default function PackageModerationPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const filtered = filter === 'all' 
+  const filtered = (filter === 'all' 
     ? packages 
-    : packages.filter(p => filter === 'active' ? p.is_active : !p.is_active);
+    : packages.filter(p => filter === 'active' ? p.is_active : !p.is_active)
+  ).filter(p => 
+    p.title.toLowerCase().includes(search.toLowerCase()) ||
+    (p.agency_name && p.agency_name.toLowerCase().includes(search.toLowerCase())) ||
+    (p.destination && p.destination.toLowerCase().includes(search.toLowerCase())) ||
+    p.id.toLowerCase().includes(search.toLowerCase()) ||
+    (p.agency_id && p.agency_id.toLowerCase().includes(search.toLowerCase()))
+  );
 
   const counts = { 
     all: packages.length, 
@@ -101,12 +109,23 @@ export default function PackageModerationPage() {
         </div>
       </div>
 
-      <div className="filter-tabs" style={{ marginBottom: 20 }}>
-        {[['all', 'All', counts.all], ['active', 'Active', counts.active], ['taken', 'Taken Down', counts.taken]].map(([val, label, count]) => (
-          <button key={val} className={`filter-tab ${filter === val ? 'active' : ''}`} onClick={() => setFilter(val)}>
-            {label} <span className="tab-count">{count}</span>
-          </button>
-        ))}
+      <div className="users-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
+        <div className="filter-tabs" style={{ marginBottom: 0 }}>
+          {[['all', 'All', counts.all], ['active', 'Active', counts.active], ['taken', 'Taken Down', counts.taken]].map(([val, label, count]) => (
+            <button key={val} className={`filter-tab ${filter === val ? 'active' : ''}`} onClick={() => setFilter(val)}>
+              {label} <span className="tab-count">{count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="search-bar" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '24px', padding: '0 16px', height: '40px', minWidth: '280px' }}>
+          <SearchIcon />
+          <input
+            placeholder="Search title, ID or agency..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--color-text)', width: '100%', fontSize: '14px' }}
+          />
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -136,11 +155,17 @@ export default function PackageModerationPage() {
                 </tr>
               ) : filtered.map(pkg => (
                 <tr key={pkg.id} onClick={() => { setSelectedPackage(pkg); setShowDetailsModal(true); }} style={{ cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 600, maxWidth: 200 }}>{pkg.title}</td>
+                  <td style={{ fontWeight: 600, maxWidth: 200 }}>
+                    <div>{pkg.title}</div>
+                    <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-muted)', fontWeight: 'normal', marginTop: 2 }}>ID: {pkg.id}</div>
+                  </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div className="avatar avatar-sm avatar-plum">{(pkg.agency_name || 'U').charAt(0)}</div>
-                      <span style={{ fontSize: 13 }}>{pkg.agency_name || 'Unknown'}</span>
+                      <div>
+                        <div style={{ fontSize: 13 }}>{pkg.agency_name || 'Unknown'}</div>
+                        <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-muted)', marginTop: 2 }}>Agency ID: {pkg.agency_id || '—'}</div>
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -247,6 +272,40 @@ export default function PackageModerationPage() {
                   <span className="details-grid-label">Description</span>
                   <span className="details-grid-value" style={{ fontWeight: 'normal', whiteSpace: 'pre-line', lineHeight: '1.5' }}>
                     {selectedPackage.description}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="details-section">
+              <h4 className="details-section-title">Record IDs</h4>
+              <div className="details-grid">
+                <div className="details-grid-item">
+                  <span className="details-grid-label">Package ID</span>
+                  <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {selectedPackage.id}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedPackage.id); showToast('Package ID copied to clipboard!'); }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                      title="Copy ID"
+                    >
+                      <CopyIcon />
+                    </button>
+                  </span>
+                </div>
+                <div className="details-grid-item">
+                  <span className="details-grid-label">Agency ID</span>
+                  <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {selectedPackage.agency_id}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedPackage.agency_id); showToast('Agency ID copied to clipboard!'); }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                      title="Copy ID"
+                    >
+                      <CopyIcon />
+                    </button>
                   </span>
                 </div>
               </div>
@@ -409,4 +468,15 @@ function XIcon() {
 
 function CheckIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+}
+function SearchIcon() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+}
+function CopyIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  );
 }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -134,6 +134,7 @@ async def get_my_bookings(
 @router.delete("/{booking_id}")
 async def cancel_booking(
     booking_id: str,
+    cancel_reason: str = Query(..., min_length=3, description="Reason for cancellation is required"),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -143,10 +144,67 @@ async def cancel_booking(
         raise HTTPException(status_code=404, detail="Booking not found.")
     if booking.traveler_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized.")
+    if booking.status == BookingStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Booking is already cancelled.")
+
+    # Fetch associated package to read refund deadline and departure date
+    pkg_res = await db.execute(select(Package).where(Package.id == booking.package_id))
+    pkg = pkg_res.scalar_one_or_none()
+    if not pkg:
+        raise HTTPException(status_code=404, detail="Associated package not found.")
+
+    # Check refund deadline
+    refundable = True
+    refund_details = "Cancelled within refund deadline."
+    
+    def parse_date(date_str: str) -> Optional[datetime]:
+        if not date_str or date_str.upper() in ("TBD", "—", ""):
+            return None
+        for fmt in ("%b %d, %Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        return None
+
+    target_date = booking.travel_date or pkg.departure_date
+    travel_dt = parse_date(target_date)
+    if travel_dt:
+        days_until_travel = (travel_dt - datetime.utcnow()).days
+        if days_until_travel < pkg.refund_deadline_days:
+            refundable = False
+            refund_details = f"Refund limit exceeded (trip is in {days_until_travel} days, limit is {pkg.refund_deadline_days} days)."
+
+    # Fetch transaction to update status
+    txn_res = await db.execute(
+        select(PaymentTransaction).where(PaymentTransaction.booking_id == booking.id)
+    )
+    txn = txn_res.scalar_one_or_none()
+    if txn:
+        if refundable:
+            txn.status = "refunded"
+            txn.payout_status = "refunded"
+        else:
+            # Payout stays with agency since traveler cancelled late (deposit is non-refundable)
+            # Do not change transaction status
+            pass
 
     booking.status = BookingStatus.cancelled
+    booking.cancel_reason = cancel_reason
     await db.commit()
-    return {"message": "Booking cancelled."}
+
+    if refundable:
+        return {
+            "message": "Booking successfully cancelled. A full refund of your deposit has been initiated.",
+            "refunded": True,
+            "details": refund_details
+        }
+    else:
+        return {
+            "message": f"Booking cancelled. Deposit is non-refundable because {refund_details}",
+            "refunded": False,
+            "details": refund_details
+        }
 
 
 # ─── Payment Request Schema ──────────────────────────────────────────────────
@@ -198,29 +256,17 @@ async def pay_booking(
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
 
-    # 2. Verify the agency has a verified bank account before accepting payment
+    # 2. Check the agency's bank verification status to determine payout status
     agency_profile_res = await db.execute(select(AgencyProfile).where(AgencyProfile.user_id == pkg.agency_id))
     agency_profile = agency_profile_res.scalar_one_or_none()
-    if not agency_profile or not agency_profile.bank_name:
-        raise HTTPException(
-            status_code=400,
-            detail="The agency has not set up a bank account yet. Payment cannot be processed."
-        )
-    if agency_profile.bank_verification_status == "not_submitted":
-        raise HTTPException(
-            status_code=400,
-            detail="The agency's bank account has not been submitted for verification. Payment cannot be processed."
-        )
-    if agency_profile.bank_verification_status == "pending":
-        raise HTTPException(
-            status_code=400,
-            detail="The agency's bank account is pending admin verification. Payment will be available once the account is approved."
-        )
-    if agency_profile.bank_verification_status == "rejected":
-        raise HTTPException(
-            status_code=400,
-            detail=f"The agency's bank account was rejected by admin. Reason: {agency_profile.bank_rejection_reason or 'No reason provided'}. Please contact the agency."
-        )
+    
+    # Traveler payment succeeds regardless of bank verification status
+    # Payout is marked "paid" only if the bank details are verified by the admin; otherwise it is "pending" (withheld)
+    is_verified = (
+        agency_profile is not None 
+        and agency_profile.bank_verification_status == "verified"
+    )
+    payout_status = "paid" if is_verified else "pending"
 
     card_brand = "Visa"
     last_four = "4242"
@@ -326,7 +372,7 @@ async def pay_booking(
         payout_amount=payout_amount,
         payment_method="credit_card",
         status="success",
-        payout_status="paid",
+        payout_status=payout_status,
         payout_ref=payout_ref,
     )
     db.add(transaction)
@@ -520,6 +566,8 @@ async def get_agency_wallet(
 
     total_balance = sum(t.payout_amount for t in txns if t.status == "success")
     platform_fees_paid = sum(t.commission_deducted for t in txns if t.status == "success")
+    withdrawn_balance = sum(t.payout_amount for t in txns if t.status == "success" and t.payout_status == "paid")
+    withheld_balance = sum(t.payout_amount for t in txns if t.status == "success" and t.payout_status == "pending")
 
     payout_history = []
     for t in txns:
@@ -550,6 +598,7 @@ async def get_agency_wallet(
     return {
         "total_balance": total_balance,
         "platform_fees_paid": platform_fees_paid,
-        "withdrawn_balance": total_balance,
+        "withdrawn_balance": withdrawn_balance,
+        "withheld_balance": withheld_balance,
         "payout_history": payout_history
     }

@@ -42,7 +42,8 @@ export default function AgencyApprovalsPage() {
   const searchFiltered = filtered.filter(a =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||
     (a.email && a.email.toLowerCase().includes(search.toLowerCase())) ||
-    (a.agency_profile?.owner_name && a.agency_profile.owner_name.toLowerCase().includes(search.toLowerCase()))
+    (a.agency_profile?.owner_name && a.agency_profile.owner_name.toLowerCase().includes(search.toLowerCase())) ||
+    a.id.toLowerCase().includes(search.toLowerCase())
   );
 
   const showToast = (msg, type = 'success') => {
@@ -161,6 +162,7 @@ export default function AgencyApprovalsPage() {
                         <div>
                           <div style={{ fontWeight: 600 }}>{agency.name}</div>
                           <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{agency.email}</div>
+                          <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-muted)', marginTop: 2 }}>ID: {agency.id}</div>
                         </div>
                       </div>
                     </td>
@@ -177,6 +179,22 @@ export default function AgencyApprovalsPage() {
                       <td colSpan={6}>
                         <div className="expanded-content">
                           <div className="expanded-details">
+                            <DetailItem
+                              label="Agency ID"
+                              value={
+                                <span style={{ fontFamily: 'monospace', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  {agency.id}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(agency.id); showToast('Agency ID copied to clipboard!'); }}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                                    title="Copy ID"
+                                  >
+                                    <CopyIcon />
+                                  </button>
+                                </span>
+                              }
+                            />
                             <DetailItem label="Phone" value={agency.phone || '—'} />
                             <DetailItem label="Address" value={agency.agency_profile?.business_address || '—'} />
                             <DetailItem label="Email" value={agency.email} />
@@ -266,6 +284,20 @@ export default function AgencyApprovalsPage() {
             <div className="details-section">
               <h4 className="details-section-title">Agency Credentials</h4>
               <div className="details-grid">
+                <div className="details-grid-item">
+                  <span className="details-grid-label">Agency ID</span>
+                  <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {selectedAgencyForDetails.id}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedAgencyForDetails.id); showToast('Agency ID copied to clipboard!'); }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                      title="Copy ID"
+                    >
+                      <CopyIcon />
+                    </button>
+                  </span>
+                </div>
                 <div className="details-grid-item">
                   <span className="details-grid-label">Owner Name</span>
                   <span className="details-grid-value">{selectedAgencyForDetails.agency_profile?.owner_name || '—'}</span>
@@ -382,4 +414,12 @@ function CheckIcon() {
 }
 function XIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+}
+function CopyIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  );
 }

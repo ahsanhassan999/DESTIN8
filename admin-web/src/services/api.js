@@ -151,4 +151,63 @@ export const api = {
       method: 'PATCH',
     });
   },
+
+  // ─── Chat Supervision ──────────────────────────────────────────────────────
+  getAdminConversations: async () => {
+    return await request('/api/admin/chat/conversations', { method: 'GET' });
+  },
+
+  getAdminMessages: async (convId) => {
+    return await request(`/api/admin/chat/conversations/${convId}/messages`, { method: 'GET' });
+  },
+
+  sendSystemWarning: async (convId, text) => {
+    return await request(`/api/admin/chat/conversations/${convId}/system-warning`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
+  toggleAdminFlag: async (convId, isFlagged, reason = null) => {
+    return await request(`/api/admin/chat/conversations/${convId}/flag`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_flagged: isFlagged, reason }),
+    });
+  },
+
+  getAdminTags: async () => {
+    return await request('/api/admin/chat/tags', { method: 'GET' });
+  },
+
+  createAdminTag: async (name, color) => {
+    return await request('/api/admin/chat/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name, color }),
+    });
+  },
+
+  deleteAdminTag: async (tagId) => {
+    return await request(`/api/admin/chat/tags/${tagId}`, { method: 'DELETE' });
+  },
+
+  updateConvTags: async (convId, tagIds) => {
+    return await request(`/api/admin/chat/conversations/${convId}/tags`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tag_ids: tagIds }),
+    });
+  },
+
+  // ─── Support Tickets ───────────────────────────────────────────────────────
+  getAdminTickets: async (status = '') => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return await request(`/api/admin/tickets${query}`, { method: 'GET' });
+  },
+
+  actionAdminTicket: async (ticketId, action, notes = '') => {
+    return await request(`/api/admin/tickets/${ticketId}/action`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, notes }),
+    });
+  },
 };
+

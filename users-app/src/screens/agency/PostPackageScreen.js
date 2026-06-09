@@ -104,6 +104,7 @@ export default function PostPackageScreen({ navigation, route }) {
   const [cancellationPolicy, setCancellationPolicy] = useState('Moderate (7 days)');
   const [depositEnabled, setDepositEnabled] = useState(false);
   const [depositPercentage, setDepositPercentage] = useState(50);
+  const [refundDeadlineDays, setRefundDeadlineDays] = useState(7);
 
   // Group & Logistics
   const [minGroup, setMinGroup] = useState('4');
@@ -115,12 +116,17 @@ export default function PostPackageScreen({ navigation, route }) {
   const [showAddLanguage, setShowAddLanguage] = useState(false);
   const [newLanguageText, setNewLanguageText] = useState('');
 
-  // Loading/Success States
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Ticket States
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [ticketDescription, setTicketDescription] = useState('');
+  const [ticketCompensation, setTicketCompensation] = useState('');
+
   const editingPackage = route.params?.package;
+
 
   React.useEffect(() => {
     if (editingPackage) {
@@ -169,6 +175,7 @@ export default function PostPackageScreen({ navigation, route }) {
       if (editingPackage.cancellation_policy) setCancellationPolicy(editingPackage.cancellation_policy);
       if (editingPackage.deposit_enabled !== undefined) setDepositEnabled(editingPackage.deposit_enabled);
       if (editingPackage.deposit_percentage !== undefined) setDepositPercentage(editingPackage.deposit_percentage);
+      if (editingPackage.refund_deadline_days !== undefined) setRefundDeadlineDays(editingPackage.refund_deadline_days);
       if (editingPackage.min_group) setMinGroup(String(editingPackage.min_group));
       if (editingPackage.max_group) setMaxGroup(String(editingPackage.max_group));
       if (editingPackage.start_point) setStartPoint(editingPackage.start_point);
@@ -374,6 +381,7 @@ export default function PostPackageScreen({ navigation, route }) {
       setCancellationPolicy(draftData.cancellationPolicy || 'Moderate (7 days)');
       setDepositEnabled(draftData.depositEnabled || false);
       if (draftData.depositPercentage !== undefined) setDepositPercentage(draftData.depositPercentage);
+      if (draftData.refundDeadlineDays !== undefined) setRefundDeadlineDays(draftData.refundDeadlineDays);
       setMinGroup(draftData.minGroup || '4');
       setMaxGroup(draftData.maxGroup || '12');
       setStartPoint(draftData.startPoint || '');
@@ -428,6 +436,7 @@ export default function PostPackageScreen({ navigation, route }) {
           cancellationPolicy,
           depositEnabled,
           depositPercentage,
+          refundDeadlineDays,
           minGroup,
           maxGroup,
           startPoint,
@@ -460,6 +469,7 @@ export default function PostPackageScreen({ navigation, route }) {
     cancellationPolicy,
     depositEnabled,
     depositPercentage,
+    refundDeadlineDays,
     minGroup,
     maxGroup,
     startPoint,
@@ -574,6 +584,7 @@ export default function PostPackageScreen({ navigation, route }) {
           is_active: isPublish,
           itinerary: days,
           deposit_percentage: depositPercentage,
+          refund_deadline_days: refundDeadlineDays,
         });
       } else {
         await api.createPackage({
@@ -588,6 +599,7 @@ export default function PostPackageScreen({ navigation, route }) {
           is_active: isPublish,
           itinerary: days,
           deposit_percentage: depositPercentage,
+          refund_deadline_days: refundDeadlineDays,
         });
       }
 
@@ -610,9 +622,58 @@ export default function PostPackageScreen({ navigation, route }) {
     } catch (err) {
       setLoading(false);
       const errMsg = err?.message || 'Failed to submit package. Please try again.';
-      Alert.alert('Error', errMsg);
+      if (editingPackage && (errMsg.toLowerCase().includes('locked') || errMsg.toLowerCase().includes('ticket'))) {
+        setShowTicketModal(true);
+      } else {
+        Alert.alert('Error', errMsg);
+      }
     }
   };
+
+  const submitCompensationTicket = async () => {
+    if (!ticketDescription.trim()) {
+      Alert.alert('Required', 'Please explain your reason for request.');
+      return;
+    }
+    setLoading(true);
+    const duration = durationMode === 'Custom' ? parseInt(customDuration, 10) || 1 : parseInt(durationMode, 10);
+    const proposedChanges = {
+      title: title.trim(),
+      destination: destination.trim(),
+      price: parseFloat(price) || 0,
+      duration_days: duration,
+      description: description.trim(),
+      included_services: JSON.stringify(services),
+      cover_image: imageUrls?.[0] || null,
+      departure_date: editingPackage.departure_date || null,
+      is_active: editingPackage.is_active,
+      itinerary: JSON.stringify(days),
+      deposit_percentage: depositPercentage,
+      refund_deadline_days: refundDeadlineDays,
+    };
+
+    try {
+      await api.submitSupportTicket({
+        package_id: editingPackage.id,
+        ticket_type: 'compensation_request',
+        subject: `Compensation Request: ${editingPackage.title}`,
+        description: ticketDescription.trim(),
+        proposed_changes: JSON.stringify(proposedChanges),
+        compensation_offer: ticketCompensation.trim(),
+      });
+      setLoading(false);
+      setShowTicketModal(false);
+      Alert.alert(
+        'Ticket Submitted',
+        'Your request has been submitted to the Admin. It will be reviewed shortly. Changes will apply once approved.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (err) {
+      setLoading(false);
+      Alert.alert('Error', err?.message || 'Failed to submit support ticket.');
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -1246,6 +1307,35 @@ export default function PostPackageScreen({ navigation, route }) {
                 </View>
               </View>
 
+              {/* Refund Deadline Selector */}
+              <View style={styles.field}>
+                <Text style={styles.label}>Refund Cancellation Window</Text>
+                <View style={styles.btnRow}>
+                  {[0, 3, 5, 7, 10, 14].map((daysCount) => (
+                    <TouchableOpacity
+                      key={daysCount}
+                      style={[
+                        styles.chipBtn,
+                        refundDeadlineDays === daysCount ? styles.chipBtnActive : styles.chipBtnInactiveOutline,
+                      ]}
+                      onPress={() => setRefundDeadlineDays(daysCount)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipBtnTxt,
+                          refundDeadlineDays === daysCount ? styles.chipBtnTxtActive : styles.chipBtnTxtInactive,
+                        ]}
+                      >
+                        {daysCount === 0 ? 'Flexible' : `${daysCount} Days`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 11, color: '#595C5D', marginTop: 4, fontFamily: 'Manrope_500Medium' }}>
+                  Travelers can cancel for a full refund up to this many days before departure. Cancellations after this window forfeit the deposit.
+                </Text>
+              </View>
+
               {/* Advance Deposit Configurator */}
               <View style={styles.field}>
                 <Text style={styles.label}>Advance Deposit Required (%)</Text>
@@ -1536,7 +1626,70 @@ export default function PostPackageScreen({ navigation, route }) {
                 <Text style={styles.modalDiscardBtnTxt}>Start Fresh</Text>
               </TouchableOpacity>
             </View>
-          </View>
+      {/* Ticket Modal overlay */}
+      {showTicketModal && (
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={{flexGrow: 1, justifyContent: 'center', width: '100%'}}>
+            <View style={[styles.modalCard, { maxWidth: 400, alignSelf: 'center' }]}>
+              <View style={styles.modalHeader}>
+                <MaterialIcons name="confirmation-number" size={24} color={C.primary} />
+                <Text style={styles.modalTitle}>Request Package Exception</Text>
+              </View>
+              
+              <Text style={styles.modalDesc}>
+                This package has bookings past the refund deadline. Direct updates are locked. Please file an exception request detailing your changes and traveler compensation strategy.
+              </Text>
+
+              <View style={styles.ticketField}>
+                <Text style={styles.ticketInputLabel}>Reason / Description of Changes</Text>
+                <TextInput
+                  style={styles.ticketTextInput}
+                  placeholder="Explain why you need to edit this package..."
+                  placeholderTextColor="rgba(89, 92, 93, 0.4)"
+                  multiline
+                  numberOfLines={3}
+                  value={ticketDescription}
+                  onChangeText={setTicketDescription}
+                />
+              </View>
+
+              <View style={styles.ticketField}>
+                <Text style={styles.ticketInputLabel}>Compensation Offer to Confirmed Travelers</Text>
+                <TextInput
+                  style={styles.ticketTextInput}
+                  placeholder="Detail how you will compensate travelers (e.g. 15% refund, complimentary dinners, or state 'No compensation needed')..."
+                  placeholderTextColor="rgba(89, 92, 93, 0.4)"
+                  multiline
+                  numberOfLines={3}
+                  value={ticketCompensation}
+                  onChangeText={setTicketCompensation}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalResumeBtn}
+                  onPress={submitCompensationTicket}
+                  activeOpacity={0.85}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.modalResumeBtnTxt}>Submit Ticket</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalDiscardBtn}
+                  onPress={() => setShowTicketModal(false)}
+                  activeOpacity={0.7}
+                  disabled={loading}
+                >
+                  <Text style={styles.modalDiscardBtnTxt}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
         </View>
       )}
     </View>
@@ -2158,5 +2311,28 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(171, 173, 174, 0.2)',
     marginVertical: 4,
+  },
+  ticketField: {
+    gap: 6,
+    width: '100%',
+  },
+  ticketInputLabel: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#2C2F30',
+  },
+  ticketTextInput: {
+    backgroundColor: '#EFF1F2',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#2C2F30',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: 'rgba(44, 47, 48, 0.08)',
   },
 });

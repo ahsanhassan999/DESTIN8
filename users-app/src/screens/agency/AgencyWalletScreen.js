@@ -73,6 +73,35 @@ export default function AgencyWalletScreen({ navigation }) {
 
   const payoutHistory = wallet?.payout_history || [];
 
+  const getPayoutStatusStyle = (status) => {
+    if (status === 'paid') {
+      return {
+        badge: [styles.statusBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }],
+        text: [styles.statusBadgeText, { color: '#10B981' }],
+        label: 'Withdrawn',
+      };
+    }
+    if (status === 'pending') {
+      return {
+        badge: [styles.statusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }],
+        text: [styles.statusBadgeText, { color: '#F59E0B' }],
+        label: 'Withheld',
+      };
+    }
+    if (status === 'refunded') {
+      return {
+        badge: [styles.statusBadge, { backgroundColor: 'rgba(186, 26, 26, 0.1)' }],
+        text: [styles.statusBadgeText, { color: '#ba1a1a' }],
+        label: 'Refunded',
+      };
+    }
+    return {
+      badge: [styles.statusBadge, { backgroundColor: 'rgba(89, 92, 93, 0.1)' }],
+      text: [styles.statusBadgeText, { color: '#595C5D' }],
+      label: status ? status.toUpperCase() : 'UNKNOWN',
+    };
+  };
+
   return (
     <View style={styles.container}>
       <AppHeader title="Earnings & Wallet" showBack navigation={navigation} />
@@ -92,22 +121,20 @@ export default function AgencyWalletScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
         >
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceTitle}>Net Earnings (Auto-Withdrawn)</Text>
+            <Text style={styles.balanceTitle}>Net Earnings (Withdrawn vs Escrow)</Text>
             <MaterialIcons name="account-balance-wallet" size={24} color="#e4cbff" />
           </View>
           <Text style={styles.balanceAmount}>{formatAmount(wallet?.total_balance)}</Text>
           
           <View style={styles.balanceDetailsRow}>
             <View>
-              <Text style={styles.detailsLabel}>Platform Fees Paid</Text>
-              <Text style={styles.detailsVal}>{formatAmount(wallet?.platform_fees_paid)}</Text>
+              <Text style={styles.detailsLabel}>Withdrawn (Paid)</Text>
+              <Text style={styles.detailsVal}>{formatAmount(wallet?.withdrawn_balance)}</Text>
             </View>
             <View style={styles.verticalDivider} />
             <View>
-              <Text style={styles.detailsLabel}>Payout Method</Text>
-              <Text style={styles.detailsVal} numberOfLines={1}>
-                {bankInfo ? `${bankInfo.bank_name} (*${bankInfo.account_number.slice(-4)})` : 'Link bank account'}
-              </Text>
+              <Text style={styles.detailsLabel}>Withheld (Escrow)</Text>
+              <Text style={styles.detailsVal}>{formatAmount(wallet?.withheld_balance)}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -127,6 +154,31 @@ export default function AgencyWalletScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
+        {bankInfo && bankInfo.bank_verification_status === 'pending' && (
+          <View style={[styles.warningBanner, { backgroundColor: '#FEF3C7', borderColor: 'rgba(217, 119, 6, 0.15)' }]}>
+            <MaterialIcons name="hourglass-empty" size={22} color="#D97706" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.warningTitle, { color: '#D97706' }]}>Bank Account Verification Pending</Text>
+              <Text style={styles.warningDesc}>Admin is verifying your bank details. Pending payouts will be released once approved.</Text>
+            </View>
+          </View>
+        )}
+
+        {bankInfo && bankInfo.bank_verification_status === 'rejected' && (
+          <TouchableOpacity
+            style={styles.warningBanner}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('BankDetails')}
+          >
+            <MaterialIcons name="error-outline" size={22} color="#ba1a1a" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.warningTitle}>Bank Account Rejected</Text>
+              <Text style={styles.warningDesc}>Reason: {bankInfo.bank_rejection_reason || 'Details incorrect'}. Tap to edit.</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color="#ba1a1a" />
+          </TouchableOpacity>
+        )}
+
         {/* Transactions Section */}
         <View style={styles.historySection}>
           <Text style={styles.sectionTitle}>Payout Transactions Ledger</Text>
@@ -138,36 +190,46 @@ export default function AgencyWalletScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.ledgerList}>
-              {payoutHistory.map((item) => (
-                <View key={item.id} style={styles.ledgerItem}>
-                  {/* Left Column Icon */}
-                  <View style={styles.ledgerIconWrap}>
-                    <MaterialIcons name="arrow-downward" size={20} color={C.success} />
-                  </View>
+              {payoutHistory.map((item) => {
+                const statusStyle = getPayoutStatusStyle(item.payout_status);
+                const isRefunded = item.payout_status === 'refunded';
+                return (
+                  <View key={item.id} style={styles.ledgerItem}>
+                    {/* Left Column Icon */}
+                    <View style={[styles.ledgerIconWrap, isRefunded && { backgroundColor: '#FEE2E2' }]}>
+                      <MaterialIcons 
+                        name={isRefunded ? "replay" : "arrow-downward"} 
+                        size={20} 
+                        color={isRefunded ? "#EF4444" : C.success} 
+                      />
+                    </View>
 
-                  {/* Middle Column Details */}
-                  <View style={styles.ledgerDetails}>
-                    <Text style={styles.ledgerPkgTitle} numberOfLines={1}>{item.package_title}</Text>
-                    <Text style={styles.ledgerDate}>Ref: {item.transaction_ref} • {item.created_at.split(' ')[0]}</Text>
-                    
-                    {/* Financial details breakdown in ledger */}
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Total paid: {formatAmount(item.amount_paid)}</Text>
+                    {/* Middle Column Details */}
+                    <View style={styles.ledgerDetails}>
+                      <Text style={styles.ledgerPkgTitle} numberOfLines={1}>{item.package_title}</Text>
+                      <Text style={styles.ledgerDate}>Ref: {item.transaction_ref} • {item.created_at.split(' ')[0]}</Text>
+                      
+                      {/* Financial details breakdown in ledger */}
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Total paid: {formatAmount(item.amount_paid)}</Text>
+                      </View>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Fee (10%): -{formatAmount(item.commission_deducted)}</Text>
+                      </View>
                     </View>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Fee (10%): -{formatAmount(item.commission_deducted)}</Text>
-                    </View>
-                  </View>
 
-                  {/* Right Column Net Payout */}
-                  <View style={styles.ledgerRight}>
-                    <Text style={styles.ledgerNetPrice}>+{formatAmount(item.payout_amount)}</Text>
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusBadgeText}>Processed</Text>
+                    {/* Right Column Net Payout */}
+                    <View style={styles.ledgerRight}>
+                      <Text style={[styles.ledgerNetPrice, isRefunded && { color: '#EF4444' }]}>
+                        {isRefunded ? '-' : '+'}{formatAmount(item.payout_amount)}
+                      </Text>
+                      <View style={statusStyle.badge}>
+                        <Text style={statusStyle.text}>{statusStyle.label}</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>

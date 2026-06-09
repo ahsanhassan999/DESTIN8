@@ -185,6 +185,7 @@ class PackageCreateRequest(BaseModel):
     is_active: Optional[bool] = True
     itinerary: Optional[str] = "[]"  # JSON string
     deposit_percentage: Optional[int] = 50
+    refund_deadline_days: Optional[int] = 7
 
 
 class PackageUpdateRequest(BaseModel):
@@ -199,6 +200,7 @@ class PackageUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
     itinerary: Optional[str] = None
     deposit_percentage: Optional[int] = None
+    refund_deadline_days: Optional[int] = None
 
 
 class PackageResponse(BaseModel):
@@ -218,6 +220,7 @@ class PackageResponse(BaseModel):
     is_takedown: bool = False
     takedown_reason: Optional[str] = None
     deposit_percentage: int = 50
+    refund_deadline_days: int = 7
     created_at: str
     average_rating: Optional[float] = None
     review_count: int = 0
@@ -258,6 +261,7 @@ class AgencyWalletResponse(BaseModel):
     total_balance: float
     platform_fees_paid: float
     withdrawn_balance: float
+    withheld_balance: float
     payout_history: list[PaymentTransactionResponse]
 
 
@@ -286,3 +290,38 @@ class ReviewResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ─── Support Tickets ──────────────────────────────────────────────────────────
+
+class SupportTicketCreate(BaseModel):
+    package_id: Optional[str] = None
+    ticket_type: str  # "compensation_request" | "general"
+    subject: str
+    description: str
+    proposed_changes: Optional[str] = None  # JSON string
+    compensation_offer: Optional[str] = None
+
+
+class SupportTicketResponse(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    package_id: Optional[str] = None
+    package_title: Optional[str] = None
+    ticket_type: str
+    subject: str
+    description: str
+    proposed_changes: Optional[str] = None
+    compensation_offer: Optional[str] = None
+    status: str
+    admin_notes: Optional[str] = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class SupportTicketAction(BaseModel):
+    action: str  # "approve" | "reject" | "close"
+    notes: Optional[str] = None

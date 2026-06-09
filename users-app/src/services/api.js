@@ -121,6 +121,7 @@ export const api = {
         is_active: pkgData.is_active !== undefined ? pkgData.is_active : true,
         itinerary: JSON.stringify(pkgData.itinerary || pkgData.days || []),
         deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : 50,
+        refund_deadline_days: pkgData.refund_deadline_days !== undefined ? parseInt(pkgData.refund_deadline_days, 10) : 7,
       }),
     });
   },
@@ -140,6 +141,7 @@ export const api = {
         is_active: pkgData.is_active,
         itinerary: (pkgData.itinerary || pkgData.days) ? JSON.stringify(pkgData.itinerary || pkgData.days) : undefined,
         deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : undefined,
+        refund_deadline_days: pkgData.refund_deadline_days !== undefined ? parseInt(pkgData.refund_deadline_days, 10) : undefined,
       }),
     });
   },
@@ -200,8 +202,9 @@ export const api = {
     });
   },
 
-  cancelBooking: async (bookingId) => {
-    return await request(`/api/bookings/${bookingId}`, { method: 'DELETE' });
+  cancelBooking: async (bookingId, cancelReason) => {
+    const query = cancelReason ? `?cancel_reason=${encodeURIComponent(cancelReason)}` : '';
+    return await request(`/api/bookings/${bookingId}${query}`, { method: 'DELETE' });
   },
 
   payBooking: async (bookingId, paymentData) => {
@@ -236,5 +239,46 @@ export const api = {
 
   getTravelerPayments: async () => {
     return await request('/api/bookings/traveler/payments', { method: 'GET' });
+  },
+
+  // Chat
+  getConversations: async () => {
+    return await request('/api/chat/conversations', { method: 'GET' });
+  },
+
+  getMessages: async (conversationId) => {
+    return await request(`/api/chat/conversations/${conversationId}/messages`, { method: 'GET' });
+  },
+
+  sendMessage: async (conversationId, text) => {
+    return await request(`/api/chat/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
+  createConversation: async (packageId) => {
+    return await request('/api/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ package_id: packageId }),
+    });
+  },
+
+  submitSupportTicket: async (ticketData) => {
+    return await request('/api/packages/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        package_id: ticketData.package_id || null,
+        ticket_type: ticketData.ticket_type,
+        subject: ticketData.subject,
+        description: ticketData.description,
+        proposed_changes: ticketData.proposed_changes || null,
+        compensation_offer: ticketData.compensation_offer || null,
+      }),
+    });
+  },
+
+  getSupportTickets: async () => {
+    return await request('/api/packages/tickets', { method: 'GET' });
   },
 };

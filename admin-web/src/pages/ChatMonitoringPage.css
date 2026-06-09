@@ -505,7 +505,7 @@
 .chat-pkg-meta { font-size: 0.72rem; color: var(--color-text-muted); }
 .chat-pkg-meta strong { color: var(--color-plum); }
 .chat-room-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
-.chat-room-actions { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
+.chat-room-actions { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; position: relative; }
 
 .btn-flag {
   background: var(--color-surface);
@@ -616,26 +616,63 @@
 }
 .ctx-item:hover { background: var(--color-surface-hover); color: var(--color-plum); }
 .ctx-item--popout:hover { background: var(--color-warning-bg); color: var(--color-warning); }
-.ctx-icon { font-style: normal; font-size: 0.85rem; width: 18px; text-align: center; flex-shrink: 0; }
+.ctx-icon {
+  font-style: normal;
+  font-size: 0.85rem;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .ctx-divider { border: none; border-top: 1px solid var(--color-border); margin: 4px 6px; }
 
 /* ─── Pop-Out Floating Windows ───────────────────────────────────────────────── */
 .pop-out-window {
-  position: fixed;
-  z-index: 8000;
-  width: 360px;
+  position: relative;
+  width: 300px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 12px 12px 0 0;
   box-shadow: 0 16px 48px rgba(44,47,48,0.2), 0 4px 16px rgba(44,47,48,0.1);
   display: flex;
   flex-direction: column;
-  max-height: 480px;
+  height: 400px;
+  max-height: 90vh;
   overflow: hidden;
-  animation: slideUp 0.18s ease;
-  transition: max-height 0.2s ease;
 }
-.pop-out-minimized { max-height: 48px; }
+.pop-out-minimized { height: 38px !important; }
+
+/* ─── Pop-out Resize Handles ─────────────────────────────────────────────────── */
+.pop-out-resize-handle {
+  position: absolute;
+  background: transparent;
+  z-index: 100;
+}
+.pop-out-resize-handle.n {
+  top: 0;
+  left: 6px;
+  right: 0;
+  height: 5px;
+  cursor: ns-resize;
+}
+.pop-out-resize-handle.w {
+  top: 6px;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+}
+.pop-out-resize-handle.nw {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+  z-index: 101;
+}
+
 
 .pop-out-header {
   display: flex;
@@ -643,13 +680,12 @@
   justify-content: space-between;
   padding: 10px 12px;
   background: linear-gradient(135deg, var(--color-plum), var(--color-lavender));
-  border-radius: 14px 14px 0 0;
-  cursor: grab;
+  border-radius: 12px 12px 0 0;
+  cursor: pointer;
   flex-shrink: 0;
   user-select: none;
 }
-.pop-out-header:active { cursor: grabbing; }
-.pop-out-minimized .pop-out-header { border-radius: 14px; }
+.pop-out-minimized .pop-out-header { border-radius: 12px 12px 0 0; }
 
 .pop-out-title { display: flex; align-items: center; gap: 7px; color: #fff; font-size: 0.75rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; }
 .pop-out-title span:last-of-type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -935,3 +971,172 @@
   color: var(--color-text);
   word-break: break-all;
 }
+
+/* ─── Pop-out Info Overlay & Tag Dropdown ─── */
+.pop-out-info-overlay {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--color-surface);
+  padding: 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.pop-out-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.pop-out-info-header h4 {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.pop-out-info-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.pop-out-info-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-danger);
+}
+
+.pop-out-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pop-out-id-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pop-out-id-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pop-out-id-val {
+  font-size: 0.7rem;
+  font-family: monospace;
+  background: var(--color-surface-low);
+  border: 1px solid var(--color-border);
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.pop-out-moderation-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.pop-out-tag-dropdown {
+  position: absolute;
+  bottom: 50px;
+  left: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  padding: 8px;
+  z-index: 100;
+  min-width: 180px;
+}
+
+.pop-out-flag-btn.active {
+  background: rgba(150, 123, 182, 0.15);
+  border-color: var(--color-plum);
+  color: var(--color-plum);
+}
+
+.pop-out-flag-btn--red-active {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+/* ─── Chat Panel Info Tab Style ────────────────────────────────────────────── */
+.chat-room-info-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--color-surface);
+  padding: 24px;
+  overflow-y: auto;
+  gap: 20px;
+}
+
+.info-tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 12px;
+}
+
+.info-tab-title {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.info-tab-content-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .info-tab-content-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.info-tab-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-tab-section-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
+.info-tab-section--moderation {
+  background: rgba(239, 68, 68, 0.02);
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+

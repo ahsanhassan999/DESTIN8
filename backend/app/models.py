@@ -1,9 +1,23 @@
 import uuid
+import random
+import string
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, Text, Float, Integer, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 import enum
+
+
+def generate_user_id():
+    return "".join(random.choices(string.digits, k=8))
+
+
+def generate_package_id():
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+
+def generate_chat_id():
+    return "CH-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
 class UserRole(str, enum.Enum):
@@ -23,7 +37,7 @@ class UserStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_user_id)
     name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
@@ -71,7 +85,7 @@ class AgencyProfile(Base):
 class Package(Base):
     __tablename__ = "packages"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_package_id)
     agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(100))
     destination: Mapped[str] = mapped_column(String(50))
@@ -86,6 +100,7 @@ class Package(Base):
     takedown_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     itinerary: Mapped[str] = mapped_column(Text, default="[]")  # JSON string
     deposit_percentage: Mapped[int] = mapped_column(Integer, default=50)
+    refund_deadline_days: Mapped[int] = mapped_column(Integer, default=7)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -141,6 +156,7 @@ class Booking(Base):
     num_travelers: Mapped[int] = mapped_column(Integer, default=1)
     travel_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -187,7 +203,7 @@ class PaymentTransaction(Base):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_chat_id)
     traveler_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
     agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
     package_id: Mapped[str] = mapped_column(String(36), ForeignKey("packages.id"))
@@ -237,3 +253,24 @@ class ConversationTagLink(Base):
 
     conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True)
     tag_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_tags.id", ondelete="CASCADE"), primary_key=True)
+
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    package_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("packages.id"), nullable=True)
+    ticket_type: Mapped[str] = mapped_column(String(50))  # "compensation_request" | "general"
+    subject: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text)
+    proposed_changes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string of edited fields
+    compensation_offer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | pending_approval | approved | rejected | closed
+    admin_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    package: Mapped["Package | None"] = relationship("Package")

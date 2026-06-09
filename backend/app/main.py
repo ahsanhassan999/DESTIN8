@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.database import engine, Base
-from app.routers import auth, admin, packages, bookings
+from app.routers import auth, admin, packages, bookings, chat
 
 # ── App Setup ──────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -14,6 +14,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    is_compiled=True,  # custom marker
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(packages.router)
 app.include_router(bookings.router)
+app.include_router(chat.router)
 
 
 # ── DB Init on Startup ─────────────────────────────────────────────────────────
@@ -67,6 +69,14 @@ async def on_startup():
         # Safe migrations for existing DB instances
         try:
             await conn.execute(text("ALTER TABLE packages ADD COLUMN itinerary TEXT DEFAULT '[]'"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN refund_deadline_days INTEGER DEFAULT 7"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE bookings ADD COLUMN cancel_reason TEXT"))
         except Exception:
             pass
         try:

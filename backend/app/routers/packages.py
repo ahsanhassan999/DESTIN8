@@ -3,15 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from typing import Optional
+from datetime import datetime
 
 from app.database import get_db
-from app.models import Package, Review, Wishlist, User, AgencyProfile, UserStatus
+from app.models import Package, Review, Wishlist, User, AgencyProfile, UserStatus, Booking, BookingStatus, Message, Conversation, SupportTicket
 from app.schemas import (
     PackageCreateRequest,
     PackageUpdateRequest,
     PackageResponse,
     ReviewCreateRequest,
     ReviewResponse,
+    SupportTicketCreate,
+    SupportTicketResponse,
 )
 from app.dependencies import get_current_user, get_current_approved_agency, get_current_traveler
 
@@ -139,6 +142,42 @@ async def create_package(
     return await _enrich_package(pkg, db)
 
 
+async def is_package_locked(package_id: str, db: AsyncSession) -> bool:
+    pkg_res = await db.execute(select(Package).where(Package.id == package_id))
+    pkg = pkg_res.scalar_one_or_none()
+    if not pkg:
+        return False
+        
+    bookings_res = await db.execute(
+        select(Booking).where(
+            Booking.package_id == package_id,
+            Booking.status == BookingStatus.confirmed
+        )
+    )
+    bookings = bookings_res.scalars().all()
+    if not bookings:
+        return False
+        
+    def parse_date(date_str: str) -> Optional[datetime]:
+        if not date_str or date_str.upper() in ("TBD", "—", ""):
+            return None
+        for fmt in ("%b %d, %Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        return None
+        
+    for b in bookings:
+        target_date = b.travel_date or pkg.departure_date
+        travel_dt = parse_date(target_date)
+        if travel_dt:
+            days_until_travel = (travel_dt - datetime.utcnow()).days
+            if days_until_travel < pkg.refund_deadline_days:
+                return True
+    return False
+
+
 @router.patch("/agency/{package_id}")
 async def update_package(
     package_id: str,
@@ -152,6 +191,42 @@ async def update_package(
     pkg = result.scalar_one_or_none()
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found or not yours.")
+
+    # Check lock status
+    if await is_package_locked(package_id, db):
+        raise HTTPException(
+            status_code=400,
+            detail="This package is locked because it has confirmed bookings past the refund deadline. Direct edits are not allowed. Please submit a compensation request ticket."
+        )
+
+    # Determine which traveler bookings are currently within their refund window
+    # so they can receive system notification messages
+    def parse_date(date_str: str) -> Optional[datetime]:
+        if not date_str or date_str.upper() in ("TBD", "—", ""):
+            return None
+        for fmt in ("%b %d, %Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        return None
+
+    bookings_res = await db.execute(
+        select(Booking).where(
+            Booking.package_id == package_id,
+            Booking.status == BookingStatus.confirmed
+        )
+    )
+    bookings = bookings_res.scalars().all()
+    
+    notified_travelers = []
+    for b in bookings:
+        target_date = b.travel_date or pkg.departure_date
+        travel_dt = parse_date(target_date)
+        if travel_dt:
+            days_until_travel = (travel_dt - datetime.utcnow()).days
+            if days_until_travel >= pkg.refund_deadline_days:
+                notified_travelers.append(b.traveler_id)
 
     if data.title is not None: pkg.title = data.title
     if data.destination is not None: pkg.destination = data.destination
@@ -170,9 +245,38 @@ async def update_package(
         pkg.is_active = data.is_active
     if data.itinerary is not None: pkg.itinerary = data.itinerary
     if data.deposit_percentage is not None: pkg.deposit_percentage = data.deposit_percentage
+    if data.refund_deadline_days is not None: pkg.refund_deadline_days = data.refund_deadline_days
 
+    # Dispatch system warnings in chat logs
+    for traveler_id in notified_travelers:
+        conv_res = await db.execute(
+            select(Conversation).where(
+                Conversation.package_id == pkg.id,
+                Conversation.traveler_id == traveler_id
+            )
+        )
+        conv = conv_res.scalar_one_or_none()
+        if not conv:
+            conv = Conversation(
+                traveler_id=traveler_id,
+                agency_id=pkg.agency_id,
+                package_id=pkg.id
+            )
+            db.add(conv)
+            await db.flush()
+            
+        sys_msg = Message(
+            conversation_id=conv.id,
+            sender_role="system",
+            sender_id=None,
+            text="Notice: The agency has updated the package details. Since you are within the cancellation window, you may request a refund if you wish. Please state the reason for your refund request.",
+            is_warning=True
+        )
+        db.add(sys_msg)
+        
     await db.commit()
     await db.refresh(pkg)
+
     return await _enrich_package(pkg, db)
 
 
@@ -188,6 +292,12 @@ async def delete_package(
     pkg = result.scalar_one_or_none()
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found or not yours.")
+
+    if await is_package_locked(package_id, db):
+        raise HTTPException(
+            status_code=400,
+            detail="This package is locked because it has confirmed bookings past the refund deadline. Direct deletions are not allowed. Please submit a support/compensation ticket."
+        )
 
     await db.delete(pkg)
     await db.commit()
@@ -308,3 +418,100 @@ async def remove_from_wishlist(
     await db.delete(item)
     await db.commit()
     return {"message": "Removed from wishlist."}
+
+
+# ─── Support Tickets ──────────────────────────────────────────────────────────
+
+@router.post("/tickets", status_code=201)
+async def create_support_ticket(
+    data: SupportTicketCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_approved_agency),
+):
+    if data.ticket_type == "compensation_request":
+        if not data.package_id:
+            raise HTTPException(status_code=400, detail="package_id is required for compensation requests.")
+        # Verify package exists and belongs to agency
+        pkg_res = await db.execute(
+            select(Package).where(Package.id == data.package_id, Package.agency_id == current_user.id)
+        )
+        pkg = pkg_res.scalar_one_or_none()
+        if not pkg:
+            raise HTTPException(status_code=404, detail="Associated package not found or not yours.")
+            
+    ticket = SupportTicket(
+        user_id=current_user.id,
+        package_id=data.package_id,
+        ticket_type=data.ticket_type,
+        subject=data.subject,
+        description=data.description,
+        proposed_changes=data.proposed_changes,
+        compensation_offer=data.compensation_offer,
+        status="pending_approval" if data.ticket_type == "compensation_request" else "open",
+    )
+    db.add(ticket)
+    await db.commit()
+    await db.refresh(ticket)
+    
+    # Enrich response
+    package_title = None
+    if ticket.package_id:
+        pkg_res = await db.execute(select(Package).where(Package.id == ticket.package_id))
+        pkg = pkg_res.scalar_one_or_none()
+        if pkg:
+            package_title = pkg.title
+            
+    return {
+        "id": ticket.id,
+        "user_id": ticket.user_id,
+        "user_name": current_user.name,
+        "package_id": ticket.package_id,
+        "package_title": package_title,
+        "ticket_type": ticket.ticket_type,
+        "subject": ticket.subject,
+        "description": ticket.description,
+        "proposed_changes": ticket.proposed_changes,
+        "compensation_offer": ticket.compensation_offer,
+        "status": ticket.status,
+        "admin_notes": ticket.admin_notes,
+        "created_at": str(ticket.created_at),
+    }
+
+
+@router.get("/tickets")
+async def get_agency_tickets(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_approved_agency),
+):
+    result = await db.execute(
+        select(SupportTicket)
+        .where(SupportTicket.user_id == current_user.id)
+        .order_by(SupportTicket.created_at.desc())
+    )
+    tickets = result.scalars().all()
+    
+    output = []
+    for t in tickets:
+        package_title = None
+        if t.package_id:
+            pkg_res = await db.execute(select(Package).where(Package.id == t.package_id))
+            pkg = pkg_res.scalar_one_or_none()
+            if pkg:
+                package_title = pkg.title
+                
+        output.append({
+            "id": t.id,
+            "user_id": t.user_id,
+            "user_name": current_user.name,
+            "package_id": t.package_id,
+            "package_title": package_title,
+            "ticket_type": t.ticket_type,
+            "subject": t.subject,
+            "description": t.description,
+            "proposed_changes": t.proposed_changes,
+            "compensation_offer": t.compensation_offer,
+            "status": t.status,
+            "admin_notes": t.admin_notes,
+            "created_at": str(t.created_at),
+        })
+    return output

@@ -123,14 +123,47 @@ export default function MyPackagesScreen({ navigation }) {
   };
 
   const handleDelete = async (id) => {
-    // Optimistic removal
-    setPackages(prev => prev.filter(p => p.id !== id));
-    try {
-      await api.deletePackage(id);
-    } catch (err) {
-      console.error('Error deleting package:', err);
-    }
+    Alert.alert(
+      "Confirm Delete",
+      "Are you sure you want to delete this package?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            let originalPackages;
+            setPackages(prev => {
+              originalPackages = prev;
+              return prev.filter(p => p.id !== id);
+            });
+            try {
+              await api.deletePackage(id);
+              Alert.alert("Success", "Package deleted successfully.");
+            } catch (err) {
+              console.error('Error deleting package:', err);
+              if (originalPackages) {
+                setPackages(originalPackages);
+              } else {
+                loadPackages(false);
+              }
+              const errMsg = err?.message || '';
+              if (errMsg.toLowerCase().includes('locked') || errMsg.toLowerCase().includes('ticket')) {
+                Alert.alert(
+                  "Delete Blocked",
+                  "This package is locked because it has confirmed bookings past the refund deadline. Direct deletions are not allowed. Please submit a support/compensation ticket in the edit screen.",
+                  [{ text: "OK" }]
+                );
+              } else {
+                Alert.alert("Error", err.message || "Failed to delete package.");
+              }
+            }
+          }
+        }
+      ]
+    );
   };
+
 
   const filteredPackages = packages.filter(
     (pkg) =>

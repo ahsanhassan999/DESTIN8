@@ -58,7 +58,8 @@ export default function UserDirectoryPage() {
     .filter(u => activeRole === 'all' || u.role === activeRole)
     .filter(u =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.id.toLowerCase().includes(search.toLowerCase())
     );
 
   const toggleSuspend = async (user) => {
@@ -223,6 +224,7 @@ export default function UserDirectoryPage() {
                       <div>
                         <div style={{ fontWeight: 600 }}>{user.name}</div>
                         <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{user.email}</div>
+                        <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-text-muted)', marginTop: 2 }}>ID: {user.id}</div>
                       </div>
                     </div>
                   </td>
@@ -438,6 +440,20 @@ export default function UserDirectoryPage() {
                   <h4 className="details-section-title">Profile Info</h4>
                   <div className="details-grid">
                     <div className="details-grid-item">
+                      <span className="details-grid-label">User ID</span>
+                      <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {selectedUserForDetails.id}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedUserForDetails.id); showToast('User ID copied to clipboard!'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                          title="Copy ID"
+                        >
+                          <CopyIcon />
+                        </button>
+                      </span>
+                    </div>
+                    <div className="details-grid-item">
                       <span className="details-grid-label">Email</span>
                       <span className="details-grid-value">{selectedUserForDetails.email}</span>
                     </div>
@@ -493,6 +509,20 @@ export default function UserDirectoryPage() {
                   <h4 className="details-section-title">Agency Credentials</h4>
                   <div className="details-grid">
                     <div className="details-grid-item">
+                      <span className="details-grid-label">User ID</span>
+                      <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {selectedUserForDetails.id}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedUserForDetails.id); showToast('User ID copied to clipboard!'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                          title="Copy ID"
+                        >
+                          <CopyIcon />
+                        </button>
+                      </span>
+                    </div>
+                    <div className="details-grid-item">
                       <span className="details-grid-label">Owner Name</span>
                       <span className="details-grid-value">{selectedUserForDetails.agency_profile?.owner_name || selectedUserForDetails.name || '—'}</span>
                     </div>
@@ -536,6 +566,20 @@ export default function UserDirectoryPage() {
                 <div className="details-section">
                   <h4 className="details-section-title">Admin Info</h4>
                   <div className="details-grid">
+                    <div className="details-grid-item">
+                      <span className="details-grid-label">User ID</span>
+                      <span className="details-grid-value" style={{ fontFamily: 'monospace', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {selectedUserForDetails.id}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(selectedUserForDetails.id); showToast('User ID copied to clipboard!'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'var(--color-text-muted)' }}
+                          title="Copy ID"
+                        >
+                          <CopyIcon />
+                        </button>
+                      </span>
+                    </div>
                     <div className="details-grid-item">
                       <span className="details-grid-label">Access Level</span>
                       <span className="details-grid-value" style={{ color: 'var(--color-plum)', fontWeight: 700 }}>Full Administrator</span>
@@ -599,4 +643,12 @@ function XIcon() {
 }
 function CheckIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+}
+function CopyIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  );
 }
