@@ -1626,6 +1626,10 @@ export default function PostPackageScreen({ navigation, route }) {
                 <Text style={styles.modalDiscardBtnTxt}>Start Fresh</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      )}
+
       {/* Ticket Modal overlay */}
       {showTicketModal && (
         <View style={styles.modalOverlay}>
