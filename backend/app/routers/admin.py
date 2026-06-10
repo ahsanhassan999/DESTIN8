@@ -5,7 +5,7 @@ from sqlalchemy import func, delete
 from typing import Optional
 
 from app.database import get_db
-from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking, PaymentTransaction, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket
+from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking, BookingStatus, PaymentTransaction, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket
 from pydantic import BaseModel
 from app.schemas import (
     AgencyWithProfileResponse,
@@ -613,6 +613,8 @@ class ConversationResponseAdmin(BaseModel):
     time: str
     unread: bool
     tags: list[ChatTagResponse]
+    sale_stage: str  # "presale" | "postsale"
+
 
 
 class AdminMessageResponse(BaseModel):
@@ -692,6 +694,16 @@ async def get_admin_conversations(
             for t in conv.tags
         ]
 
+        # Check if traveler has a paid/confirmed booking for this package
+        booking_query = select(Booking).where(
+            Booking.traveler_id == conv.traveler_id,
+            Booking.package_id == conv.package_id,
+            Booking.status == BookingStatus.confirmed
+        )
+        booking_res = await db.execute(booking_query)
+        confirmed_booking = booking_res.scalars().first()
+        sale_stage = "postsale" if confirmed_booking else "presale"
+
         output.append(
             ConversationResponseAdmin(
                 id=conv.id,
@@ -707,6 +719,7 @@ async def get_admin_conversations(
                 time=last_msg_time,
                 unread=False,
                 tags=tags_list,
+                sale_stage=sale_stage,
             )
         )
 

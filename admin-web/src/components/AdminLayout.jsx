@@ -136,7 +136,14 @@ export default function AdminLayout() {
                   <span className="chat-meta-divider">↔</span>
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>{transcriptConv.agency}</h3>
                 </div>
-                <div className="chat-pkg-meta" style={{ fontSize: '0.78rem', marginTop: '2px' }}>Enquiry: <strong>{transcriptConv.package}</strong></div>
+                <div className="chat-pkg-meta" style={{ fontSize: '0.78rem', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Enquiry: <strong>{transcriptConv.package}</strong></span>
+                  {transcriptConv.sale_stage && (
+                    <span style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', textTransform: 'uppercase', background: transcriptConv.sale_stage === 'postsale' ? '#D1FAE5' : '#EFF1F2', color: transcriptConv.sale_stage === 'postsale' ? '#10B981' : '#595C5D' }}>
+                      {transcriptConv.sale_stage}
+                    </span>
+                  )}
+                </div>
                 {/* Conv tags */}
                 {(convTags[fullTranscriptConvId] || []).length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>

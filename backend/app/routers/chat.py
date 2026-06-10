@@ -233,6 +233,9 @@ async def send_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    import re
+    from app.models import Booking, BookingStatus
+
     # Verify conversation exists and user is part of it
     conv_res = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
     conv = conv_res.scalar_one_or_none()
@@ -241,6 +244,43 @@ async def send_message(
 
     if conv.traveler_id != current_user.id and conv.agency_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied.")
+
+    # Check if traveler has a paid/confirmed booking for this package
+    booking_query = select(Booking).where(
+        Booking.traveler_id == conv.traveler_id,
+        Booking.package_id == conv.package_id,
+        Booking.status == BookingStatus.confirmed
+    )
+    booking_res = await db.execute(booking_query)
+    confirmed_booking = booking_res.scalars().first()
+    is_paid = confirmed_booking is not None
+
+    if not is_paid:
+        text = data.text
+
+        # Regex checks for email, phone numbers, website links, or spelled-out numbers
+        email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+        social_url_pattern = r'\b(?:instagram|facebook|twitter|linkedin|github|tiktok|wa\.me|whatsapp|skype|viber|wechat|telegram|fb|insta)\.com\b|\b(?:www\.)?(?:instagram|facebook|twitter|linkedin|github|tiktok|wa\.me|whatsapp|skype|viber|wechat|telegram)\.[a-z]{2,}\b'
+        handle_pattern = r'@\w{3,}'
+        phone_pattern = r'(?:\+?92|0)?[- ]*3[0-9]{2}[- ]*[0-9]{7}\b|\b(?:\d[- ]*){7,}\b'
+        
+        num_words = r'(?:zero|one|two|three|four|five|six|seven|eight|nine)'
+        spelled_pattern = rf'{num_words}[- ]*{num_words}[- ]*{num_words}'
+        
+        contact_keywords = r'\b(?:phone|whatsapp|mobile|contact|number|insta|facebook|fb|wechat|telegram)\b\s*(?:number|is|at|:|\-|=)*\s*\d+'
+
+        has_email = re.search(email_pattern, text)
+        has_social = re.search(social_url_pattern, text, re.IGNORECASE)
+        has_handle = re.search(handle_pattern, text)
+        has_phone = re.search(phone_pattern, text)
+        has_spelled = re.search(spelled_pattern, text, re.IGNORECASE)
+        has_keywords = re.search(contact_keywords, text, re.IGNORECASE)
+
+        if has_email or has_social or has_handle or has_phone or has_spelled or has_keywords:
+            raise HTTPException(
+                status_code=400,
+                detail="Sharing contact details (phone numbers, email addresses, social handles, or links) before booking payment is prohibited. Keep discussions inside the platform."
+            )
 
     sender_role = "traveler" if current_user.role == UserRole.traveler else "agency"
 

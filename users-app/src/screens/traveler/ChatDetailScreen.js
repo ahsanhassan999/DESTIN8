@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Platform, Animated, Keyboard, KeyboardAvoidingView,
-  ActivityIndicator,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -117,6 +117,8 @@ export default function ChatDetailScreen({ route, navigation }) {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (err) {
       console.error('Error sending message:', err);
+      setInputText(textToSend); // Restore text so user doesn't lose it
+      Alert.alert('Message Blocked', err.message || 'Failed to send message.');
     }
   };
 

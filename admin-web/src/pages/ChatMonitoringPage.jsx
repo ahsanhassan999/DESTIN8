@@ -166,7 +166,14 @@ function ChatPanel({ panelId, tabs, activeTabId, conversations, messagesDb, onTa
                 <span className="chat-meta-divider">↔</span>
                 <h3>{activeConv.agency}</h3>
               </div>
-              <div className="chat-pkg-meta">Enquiry: <strong>{activeConv.package}</strong></div>
+              <div className="chat-pkg-meta" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <span>Enquiry: <strong>{activeConv.package}</strong></span>
+                {activeConv.sale_stage && (
+                  <span className={`sale-stage-badge sale-stage-badge--${activeConv.sale_stage}`} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', textTransform: 'uppercase', background: activeConv.sale_stage === 'postsale' ? '#D1FAE5' : '#EFF1F2', color: activeConv.sale_stage === 'postsale' ? '#10B981' : '#595C5D' }}>
+                    {activeConv.sale_stage}
+                  </span>
+                )}
+              </div>
               {/* Conv tags */}
               {(convTags[activeTabId] || []).length > 0 && (
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -873,9 +880,15 @@ export default function ChatMonitoringPage() {
                     <span>{conv.agency}</span>
                   </div>
 
-                  {/* Row 3: package + activity status */}
                   <div className="chat-item-row3">
-                    <span className="chat-item-package-label">{conv.package}</span>
+                    <span className="chat-item-package-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {conv.package}
+                      {conv.sale_stage && (
+                        <span className={`sale-stage-indicator sale-stage-indicator--${conv.sale_stage}`} style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold', textTransform: 'uppercase', background: conv.sale_stage === 'postsale' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(89, 92, 93, 0.1)', color: conv.sale_stage === 'postsale' ? '#10B981' : '#595C5D' }}>
+                          {conv.sale_stage}
+                        </span>
+                      )}
+                    </span>
                     <div className="chat-activity-status">
                       <span
                         className={`chat-activity-dot ${actMeta.pulse ? 'pulsing' : ''}`}
