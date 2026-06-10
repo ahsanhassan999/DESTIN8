@@ -331,6 +331,7 @@ export default function TravelerDashboardScreen({ navigation }) {
           <TouchableOpacity
             style={styles.compareFab}
             activeOpacity={0.85}
+            onPress={() => navigation.navigate('PackageComparison', { packageIds: Array.from(compareList) })}
           >
             <MaterialIcons name="compare-arrows" size={20} color="#52396f" style={{ backgroundColor: 'transparent' }} />
             <Text style={styles.compareFabText}>Compare ({compareList.size})</Text>

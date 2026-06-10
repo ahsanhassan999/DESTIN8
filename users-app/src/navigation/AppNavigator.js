@@ -26,6 +26,7 @@ import ChatListScreen          from '../screens/traveler/ChatListScreen';
 import ChatDetailScreen        from '../screens/traveler/ChatDetailScreen';
 import MyTripsScreen           from '../screens/traveler/MyTripsScreen';
 import PaymentReceiptsScreen   from '../screens/traveler/PaymentReceiptsScreen';
+import PackageComparisonScreen from '../screens/traveler/PackageComparisonScreen';
 
 // ── Agency
 import AgencyDashboardScreen from '../screens/agency/AgencyDashboardScreen';
@@ -230,6 +231,7 @@ function TravelerStack() {
       <Stack.Screen name="ChatDetail"    component={ChatDetailScreen} />
       <Stack.Screen name="Profile"       component={TravelerProfileScreen} />
       <Stack.Screen name="PaymentReceipts" component={PaymentReceiptsScreen} />
+      <Stack.Screen name="PackageComparison" component={PackageComparisonScreen} />
     </Stack.Navigator>
   );
 }

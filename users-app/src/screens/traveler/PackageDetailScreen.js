@@ -212,6 +212,7 @@ export default function PackageDetailScreen({ navigation, route }) {
   const { user } = useAuth();
   const isTraveler = user?.role === 'traveler';
   const [wishlisted, setWishlisted] = useState(false);
+  const [reviewsList, setReviewsList] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState(1);
 
@@ -386,7 +387,18 @@ export default function PackageDetailScreen({ navigation, route }) {
         console.error('Error loading full package details:', err);
       }
     };
+    const fetchReviews = async () => {
+      try {
+        const rData = await api.getReviews(pkg.id);
+        if (active && rData) {
+          setReviewsList(rData);
+        }
+      } catch (err) {
+        console.error('Error loading reviews:', err);
+      }
+    };
     fetchDetails();
+    fetchReviews();
     return () => { active = false; };
   }, [pkg.id]);
 
@@ -800,6 +812,77 @@ export default function PackageDetailScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Reviews Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
+            
+            {reviewsList.length === 0 ? (
+              <View style={styles.emptyReviews}>
+                <MaterialIcons name="rate-review" size={40} color="#7b757f" style={{ opacity: 0.4 }} />
+                <Text style={styles.emptyReviewsText}>No reviews yet. Be the first to share your experience!</Text>
+              </View>
+            ) : (
+              <View>
+                {/* Summary Header */}
+                <View style={styles.reviewsSummaryHeader}>
+                  <View style={styles.reviewsSummaryAvg}>
+                    <Text style={styles.reviewsAvgText}>
+                      {(reviewsList.reduce((acc, r) => acc + r.rating, 0) / reviewsList.length).toFixed(1)}
+                    </Text>
+                    <View style={styles.starsRow}>
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const avg = reviewsList.reduce((acc, r) => acc + r.rating, 0) / reviewsList.length;
+                        return (
+                          <MaterialIcons
+                            key={star}
+                            name={star <= Math.round(avg) ? "star" : "star-border"}
+                            size={16}
+                            color="#FFD700"
+                          />
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.reviewsCountText}>{reviewsList.length} reviews</Text>
+                  </View>
+                </View>
+
+                {/* List of Reviews */}
+                <View style={styles.reviewsList}>
+                  {reviewsList.map((rev) => (
+                    <View key={rev.id} style={styles.reviewItem}>
+                      <View style={styles.reviewUserRow}>
+                        <View style={styles.reviewUserAvatar}>
+                          <Text style={styles.reviewAvatarText}>
+                            {rev.user_name ? rev.user_name.charAt(0).toUpperCase() : 'U'}
+                          </Text>
+                        </View>
+                        <View style={styles.reviewUserMeta}>
+                          <Text style={styles.reviewUserName}>{rev.user_name || 'Traveler'}</Text>
+                          <Text style={styles.reviewUserDate}>
+                            {rev.created_at.includes(' ') ? rev.created_at.split(' ')[0] : rev.created_at.includes('T') ? rev.created_at.split('T')[0] : rev.created_at}
+                          </Text>
+                        </View>
+                        <View style={styles.reviewRatingStars}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <MaterialIcons
+                              key={star}
+                              name={star <= rev.rating ? "star" : "star-border"}
+                              size={14}
+                              color="#FFD700"
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      {rev.comment ? (
+                        <Text style={styles.reviewCommentText}>{rev.comment}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={{ height: 140 }} />
@@ -1750,5 +1833,97 @@ const styles = StyleSheet.create({
     fontFamily: 'Epilogue_600SemiBold',
     fontSize: 16,
     color: '#ffffff',
+  },
+  emptyReviews: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  emptyReviewsText: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 13,
+    color: '#7b757f',
+    textAlign: 'center',
+  },
+  reviewsSummaryHeader: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    backgroundColor: '#F8F6FC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 123, 182, 0.15)',
+  },
+  reviewsSummaryAvg: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  reviewsAvgText: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 36,
+    color: '#2C2F30',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginVertical: 4,
+  },
+  reviewsCountText: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+    color: '#595C5D',
+  },
+  reviewsList: {
+    gap: 16,
+  },
+  reviewItem: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(171, 173, 174, 0.15)',
+  },
+  reviewUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  reviewUserAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#52396f',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewAvatarText: {
+    color: '#ffffff',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+  },
+  reviewUserMeta: {
+    flex: 1,
+  },
+  reviewUserName: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 13,
+    color: '#2C2F30',
+  },
+  reviewUserDate: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 11,
+    color: '#595C5D',
+  },
+  reviewRatingStars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  reviewCommentText: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 13,
+    color: '#2C2F30',
+    lineHeight: 18,
   },
 });

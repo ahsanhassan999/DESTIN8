@@ -18,6 +18,12 @@ export default function MyTripsScreen({ navigation }) {
   const [activeBookingId, setActiveBookingId] = useState(null);
   const [activeTripTitle, setActiveTripTitle] = useState('');
 
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [activePackageId, setActivePackageId] = useState(null);
+  const [activePackageTitle, setActivePackageTitle] = useState('');
+
   const handleCancelPress = (bookingId, tripTitle) => {
     setActiveBookingId(bookingId);
     setActiveTripTitle(tripTitle);
@@ -39,6 +45,32 @@ export default function MyTripsScreen({ navigation }) {
     } catch (err) {
       console.error('Error cancelling booking:', err);
       Alert.alert("Error", err.message || "Failed to cancel booking. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleReviewPress = (packageId, packageTitle) => {
+    setActivePackageId(packageId);
+    setActivePackageTitle(packageTitle);
+    setReviewRating(5);
+    setReviewComment('');
+    setReviewModalVisible(true);
+  };
+
+  const performReviewSubmission = async () => {
+    if (reviewRating < 1 || reviewRating > 5) {
+      Alert.alert("Rating Required", "Please select a rating between 1 and 5.");
+      return;
+    }
+    try {
+      setLoading(true);
+      setReviewModalVisible(false);
+      await api.submitReview(activePackageId, reviewRating, reviewComment.trim());
+      Alert.alert("Success", "Thank you! Your review has been submitted successfully.");
+      await loadTrips(false);
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      Alert.alert("Error", err.message || "Failed to submit review. Please try again.");
       setLoading(false);
     }
   };
@@ -222,6 +254,17 @@ export default function MyTripsScreen({ navigation }) {
                         <Text style={styles.cancelBtnText}>Cancel Booking</Text>
                       </TouchableOpacity>
                     )}
+
+                    {trip.status === 'Completed' && (
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={() => handleReviewPress(trip.id, trip.title)}
+                        activeOpacity={0.8}
+                      >
+                        <MaterialIcons name="star-rate" size={16} color="#ffffff" />
+                        <Text style={styles.reviewBtnText}>Rate & Review</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -267,6 +310,65 @@ export default function MyTripsScreen({ navigation }) {
                 onPress={() => performCancellation(activeBookingId, cancelReason)}
               >
                 <Text style={styles.modalBtnTextPrimary}>Confirm Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={reviewModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Rate & Review</Text>
+            <Text style={styles.modalDesc}>
+              Share your travel experience for "{activePackageTitle}".
+            </Text>
+            
+            {/* Star Rating Selector */}
+            <View style={styles.starContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setReviewRating(star)}
+                  style={styles.starTouch}
+                >
+                  <MaterialIcons
+                    name={star <= reviewRating ? "star" : "star-border"}
+                    size={36}
+                    color={star <= reviewRating ? "#FFD700" : "#595c5d"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Tell us what you liked or how we can improve..."
+              placeholderTextColor="#999"
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              multiline={true}
+              numberOfLines={4}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => setReviewModalVisible(false)}
+              >
+                <Text style={styles.modalBtnTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary, { backgroundColor: '#52396f' }]}
+                onPress={performReviewSubmission}
+              >
+                <Text style={styles.modalBtnTextPrimary}>Submit</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -536,5 +638,29 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 14,
     color: '#fff',
+  },
+  reviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 14,
+    backgroundColor: '#52396f',
+  },
+  reviewBtnText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#ffffff',
+  },
+  starContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  starTouch: {
+    padding: 4,
   },
 });
