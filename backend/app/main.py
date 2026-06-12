@@ -43,7 +43,7 @@ app.include_router(chat.router)
 async def on_startup():
     from sqlalchemy import text
     from datetime import datetime
-    from app.models import Conversation, Message, ChatTag, ConversationTagLink, TicketTag, TicketTagLink
+    from app.models import User, AgencyProfile, Package, Wishlist, Review, Booking, PaymentTransaction, SavedCard, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket, TicketTag, TicketTagLink
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Seed default tags if they don't exist
