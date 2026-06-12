@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, API_URL } from '../services/api';
 import './PackageModerationPage.css';
 
 export default function PackageModerationPage() {
@@ -225,7 +225,7 @@ export default function PackageModerationPage() {
 
             {selectedPackage.cover_image && (
               <img
-                src={selectedPackage.cover_image.startsWith('http') ? selectedPackage.cover_image : `http://localhost:8000${selectedPackage.cover_image}`}
+                src={selectedPackage.cover_image.startsWith('http') ? selectedPackage.cover_image : `${API_URL}${selectedPackage.cover_image}`}
                 alt={selectedPackage.title}
                 style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}
                 onError={(e) => { e.target.style.display = 'none'; }}

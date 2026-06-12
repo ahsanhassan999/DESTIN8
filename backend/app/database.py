@@ -1,12 +1,17 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = "sqlite+aiosqlite:///./destin8.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./destin8.db")
+
+engine_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_args["connect_args"] = {"check_same_thread": False}
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False},
+    **engine_args
 )
 
 AsyncSessionLocal = async_sessionmaker(

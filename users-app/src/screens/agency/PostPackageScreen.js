@@ -553,6 +553,24 @@ export default function PostPackageScreen({ navigation, route }) {
     );
   };
 
+  const uploadLocalImages = async (urls) => {
+    const uploadedUrls = [];
+    for (const url of urls) {
+      if (url && (url.startsWith('file:/') || url.startsWith('/') || !url.startsWith('http'))) {
+        try {
+          const res = await api.uploadImage(url);
+          uploadedUrls.push(res.url);
+        } catch (err) {
+          console.log('Error uploading image:', err);
+          throw new Error(`Failed to upload package image: ${err.message}`);
+        }
+      } else {
+        uploadedUrls.push(url);
+      }
+    }
+    return uploadedUrls;
+  };
+
   // Submit flow
   const handleAction = async (status) => {
     // Validate required fields
@@ -579,6 +597,8 @@ export default function PostPackageScreen({ navigation, route }) {
     const duration = durationMode === 'Custom' ? parseInt(customDuration, 10) || 1 : parseInt(durationMode, 10);
 
     try {
+      const remoteImageUrls = await uploadLocalImages(imageUrls);
+
       if (editingPackage) {
         await api.updatePackage(editingPackage.id, {
           title: title.trim(),
@@ -587,7 +607,7 @@ export default function PostPackageScreen({ navigation, route }) {
           duration,
           description: description.trim(),
           includedServices: services,
-          imageUrls,
+          imageUrls: remoteImageUrls,
           departureDate: null,
           is_active: isPublish,
           itinerary: days,
@@ -603,7 +623,7 @@ export default function PostPackageScreen({ navigation, route }) {
           duration,
           description: description.trim(),
           includedServices: services,
-          imageUrls,
+          imageUrls: remoteImageUrls,
           departureDate: null,
           is_active: isPublish,
           itinerary: days,
@@ -654,23 +674,26 @@ export default function PostPackageScreen({ navigation, route }) {
     }
     setLoading(true);
     const duration = durationMode === 'Custom' ? parseInt(customDuration, 10) || 1 : parseInt(durationMode, 10);
-    const proposedChanges = {
-      title: title.trim(),
-      destination: destination.trim(),
-      price: parseFloat(price) || 0,
-      duration_days: duration,
-      description: description.trim(),
-      included_services: JSON.stringify(services),
-      cover_image: imageUrls?.[0] || null,
-      departure_date: editingPackage.departure_date || null,
-      is_active: editingPackage.is_active,
-      itinerary: JSON.stringify(days),
-      deposit_percentage: depositPercentage,
-      refund_deadline_days: refundDeadlineDays,
-      best_season: bestSeason,
-    };
 
     try {
+      const remoteImageUrls = await uploadLocalImages(imageUrls);
+      
+      const proposedChanges = {
+        title: title.trim(),
+        destination: destination.trim(),
+        price: parseFloat(price) || 0,
+        duration_days: duration,
+        description: description.trim(),
+        included_services: JSON.stringify(services),
+        cover_image: remoteImageUrls?.[0] || null,
+        departure_date: editingPackage.departure_date || null,
+        is_active: editingPackage.is_active,
+        itinerary: JSON.stringify(days),
+        deposit_percentage: depositPercentage,
+        refund_deadline_days: refundDeadlineDays,
+        best_season: bestSeason,
+      };
+
       await api.submitSupportTicket({
         package_id: editingPackage.id,
         ticket_type: 'compensation_request',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, API_URL } from '../services/api';
 import './SupportTicketsPage.css';
 
 const TABS = [
@@ -710,7 +710,7 @@ export default function SupportTicketsPage() {
 
                   {mergedPackage.cover_image && (
                     <img
-                      src={mergedPackage.cover_image.startsWith('http') ? mergedPackage.cover_image : `http://localhost:8000${mergedPackage.cover_image}`}
+                      src={mergedPackage.cover_image.startsWith('http') ? mergedPackage.cover_image : `${API_URL}${mergedPackage.cover_image}`}
                       alt={mergedPackage.title}
                       style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: '20px' }}
                       onError={(e) => { e.target.style.display = 'none'; }}

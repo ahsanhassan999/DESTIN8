@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+import uuid
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -583,3 +586,51 @@ async def get_agency_tickets(
             "created_at": str(t.created_at),
         })
     return output
+
+
+@router.post("/upload")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_approved_agency)
+):
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
+    
+    # Generate unique filename
+    file_ext = os.path.splitext(file.filename)[1] or ".jpg"
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    
+    file_bytes = await file.read()
+    
+    if supabase_url and supabase_key:
+        supabase_url = supabase_url.rstrip("/")
+        upload_url = f"{supabase_url}/storage/v1/object/destin8-media/{unique_filename}"
+        
+        headers = {
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": file.content_type or "image/jpeg"
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(upload_url, content=file_bytes, headers=headers)
+                if resp.status_code == 200:
+                    public_url = f"{supabase_url}/storage/v1/object/public/destin8-media/{unique_filename}"
+                    return {"url": public_url}
+                else:
+                    print(f"Supabase upload failed: {resp.status_code} {resp.text}")
+        except Exception as e:
+            print(f"Supabase upload exception: {e}")
+            
+    # Fallback to local storage (e.g. local dev)
+    uploads_dir = os.getenv("UPLOADS_DIR", "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    local_path = os.path.join(uploads_dir, unique_filename)
+    
+    try:
+        with open(local_path, "wb") as f:
+            f.write(file_bytes)
+        return {"url": f"/uploads/{unique_filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file locally: {str(e)}")
+
