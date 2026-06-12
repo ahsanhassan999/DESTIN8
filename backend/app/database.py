@@ -13,7 +13,7 @@ if DATABASE_URL.startswith("sqlite"):
     engine_args["connect_args"] = {"check_same_thread": False}
 else:
     # Disable prepared statements cache for pgBouncer (Supabase Transaction Pooler) compatibility
-    engine_args["prepared_statement_cache_size"] = 0
+    engine_args["connect_args"] = {"prepared_statement_cache_size": 0}
 
 engine = create_async_engine(
     DATABASE_URL,
