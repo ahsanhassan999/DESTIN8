@@ -216,6 +216,48 @@ export default function PackageDetailScreen({ navigation, route }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState(1);
 
+  // Proposed changes preview state
+  const [previewProposed, setPreviewProposed] = useState(pkg.has_pending_approval ? true : false);
+
+  // Review & Themed Alert States
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [themedAlert, setThemedAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
+
+  const showThemedAlert = (title, message, onConfirm = null) => {
+    setThemedAlert({ visible: true, title, message, onConfirm });
+  };
+
+  const handleReviewSubmit = async () => {
+    if (reviewRating < 1 || reviewRating > 5) {
+      showThemedAlert('Invalid Rating', 'Please select a rating between 1 and 5 stars.');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await api.submitReview(fullPkg.id, reviewRating, reviewComment.trim());
+      setReviewModalVisible(false);
+      setReviewComment('');
+      setReviewRating(5);
+      
+      const rData = await api.getReviews(fullPkg.id);
+      if (rData) setReviewsList(rData);
+      
+      const pkgData = await api.getPackage(fullPkg.id);
+      if (pkgData) {
+        setFullPkg(prev => ({ ...prev, ...pkgData }));
+      }
+      
+      showThemedAlert('Review Submitted', 'Thank you for sharing your experience!');
+    } catch (err) {
+      showThemedAlert('Error', err.message || 'Failed to submit review.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   // Booking & Checkout States
   const [checkoutVisible, setCheckoutVisible] = useState(false);
   const [numTravelers, setNumTravelers] = useState(1);
@@ -370,6 +412,7 @@ export default function PackageDetailScreen({ navigation, route }) {
           // Store the numeric raw price separately so checkout math works
           const numericPrice = typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '0').replace(/[^0-9.]/g, '')) || 0;
           setRawPrice(numericPrice);
+          setPreviewProposed(data.has_pending_approval ? true : false);
           setFullPkg(prev => ({
             ...prev,
             ...data,
@@ -434,7 +477,10 @@ export default function PackageDetailScreen({ navigation, route }) {
   const scrollRef = React.useRef(null);
   const dayRefs = React.useRef({});
 
-  const daysData = getPackageDays(fullPkg);
+  const useLive = !isTraveler && fullPkg.has_pending_approval && !previewProposed && fullPkg.live_version;
+  const displayPkg = useLive ? fullPkg.live_version : fullPkg;
+
+  const daysData = getPackageDays(displayPkg);
 
   useEffect(() => {
     if (daysData && daysData.length > 0 && !daysData.some(d => d.id === selectedDayId)) {
@@ -466,31 +512,32 @@ export default function PackageDetailScreen({ navigation, route }) {
   const selectedDayIndex = daysData.findIndex(d => d.id === selectedDayId);
 
   // Dynamic fallbacks to support custom user packages and match the exact HTML designs
-  const image = fullPkg.img || fullPkg.image || fullPkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
-  const images = (fullPkg.imageUrls && fullPkg.imageUrls.length > 0) ? fullPkg.imageUrls : [image];
-  const title = fullPkg.title || 'Autumn Splendor Expedition';
-  const agencyName = fullPkg.agency || fullPkg.agency_name || 'Odyssey Travels';
-  const duration = fullPkg.duration || (fullPkg.duration_days ? `${fullPkg.duration_days} Days` : '7 Days');
+  const image = displayPkg.img || displayPkg.image || displayPkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
+  const images = (displayPkg.imageUrls && displayPkg.imageUrls.length > 0) ? displayPkg.imageUrls : [image];
+  const title = displayPkg.title || 'Autumn Splendor Expedition';
+  const agencyName = displayPkg.agency || displayPkg.agency_name || 'Odyssey Travels';
+  const duration = displayPkg.duration || (displayPkg.duration_days ? `${displayPkg.duration_days} Days` : '7 Days');
   // rawPrice is always numeric; price is the formatted display string
-  const price = rawPrice > 0 ? `PKR ${rawPrice.toLocaleString()}` : (fullPkg.price ? (typeof fullPkg.price === 'number' ? `PKR ${fullPkg.price.toLocaleString()}` : fullPkg.price) : 'PKR 45,000');
-  const destination = fullPkg.destination || 'HUNZA, PAKISTAN';
-  const description = fullPkg.description || 'Experience the breathtaking transformation of the Hunza Valley as it turns into a vibrant tapestry of gold and crimson. This curated expedition offers an exclusive retreat into the Karakoram range, blending architectural discovery with high-altitude serenity. From private orchard walks to stays in historic stone retreats, every moment is designed for the discerning traveler seeking profound beauty.';
+  const displayPriceValue = useLive ? displayPkg.price : rawPrice;
+  const price = displayPriceValue > 0 ? `PKR ${displayPriceValue.toLocaleString()}` : (displayPkg.price ? (typeof displayPkg.price === 'number' ? `PKR ${displayPkg.price.toLocaleString()}` : displayPkg.price) : 'PKR 45,000');
+  const destination = displayPkg.destination || 'HUNZA, PAKISTAN';
+  const description = displayPkg.description || 'Experience the breathtaking transformation of the Hunza Valley as it turns into a vibrant tapestry of gold and crimson. This curated expedition offers an exclusive retreat into the Karakoram range, blending architectural discovery with high-altitude serenity. From private orchard walks to stays in historic stone retreats, every moment is designed for the discerning traveler seeking profound beauty.';
 
-  const isMockPkg = (fullPkg.title && (
-    fullPkg.title.toLowerCase().includes('autumn splendor') ||
-    fullPkg.title.toLowerCase().includes('hunza valley') ||
-    fullPkg.title.toLowerCase().includes('k2 base camp') ||
-    fullPkg.title.toLowerCase().includes('swat valley') ||
-    fullPkg.title.toLowerCase().includes('maldives luxury') ||
-    fullPkg.title.toLowerCase().includes('fairy meadows')
+  const isMockPkg = (displayPkg.title && (
+    displayPkg.title.toLowerCase().includes('autumn splendor') ||
+    displayPkg.title.toLowerCase().includes('hunza valley') ||
+    displayPkg.title.toLowerCase().includes('k2 base camp') ||
+    displayPkg.title.toLowerCase().includes('swat valley') ||
+    displayPkg.title.toLowerCase().includes('maldives luxury') ||
+    displayPkg.title.toLowerCase().includes('fairy meadows')
   ));
 
   let inclusions = [];
-  if (fullPkg.inclusions && Array.isArray(fullPkg.inclusions) && fullPkg.inclusions.length > 0) {
-    inclusions = fullPkg.inclusions;
-  } else if (fullPkg.included_services) {
+  if (displayPkg.inclusions && Array.isArray(displayPkg.inclusions) && displayPkg.inclusions.length > 0) {
+    inclusions = displayPkg.inclusions;
+  } else if (displayPkg.included_services) {
     try {
-      inclusions = typeof fullPkg.included_services === 'string' ? JSON.parse(fullPkg.included_services) : fullPkg.included_services;
+      inclusions = typeof displayPkg.included_services === 'string' ? JSON.parse(displayPkg.included_services) : displayPkg.included_services;
     } catch (_) {}
   }
   if ((!inclusions || inclusions.length === 0) && isMockPkg) {
@@ -499,6 +546,56 @@ export default function PackageDetailScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Proposed changes preview toggle bar for agencies */}
+      {!isTraveler && fullPkg.has_pending_approval && (
+        <View style={[styles.previewToggleBar, { paddingTop: insets.top > 0 ? insets.top : 12 }]}>
+          <Text style={styles.previewToggleTitle}>PREVIEW VERSION</Text>
+          <View style={styles.previewToggleButtons}>
+            <TouchableOpacity
+              style={[styles.previewToggleBtn, previewProposed ? styles.previewToggleBtnActive : null]}
+              onPress={() => setPreviewProposed(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.previewToggleBtnTxt, previewProposed ? styles.previewToggleBtnTxtActive : null]}>
+                Proposed Draft
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.previewToggleBtn, !previewProposed ? styles.previewToggleBtnActive : null]}
+              onPress={() => setPreviewProposed(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.previewToggleBtnTxt, !previewProposed ? styles.previewToggleBtnTxtActive : null]}>
+                Current Live
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Warning/Info Banner explaining current preview mode */}
+      {!isTraveler && fullPkg.has_pending_approval && (
+        <View style={[
+          styles.previewInfoBanner,
+          previewProposed ? styles.previewInfoPending : styles.previewInfoLive
+        ]}>
+          <MaterialIcons 
+            name={previewProposed ? "warning" : "check-circle"} 
+            size={18} 
+            color={previewProposed ? "#b45309" : "#047857"} 
+          />
+          <Text style={[
+            styles.previewInfoText,
+            previewProposed ? styles.previewInfoTextPending : styles.previewInfoTextLive
+          ]}>
+            {previewProposed 
+              ? "Viewing proposed changes submitted for admin approval. This draft is NOT live to travelers yet."
+              : "Viewing the current live version visible to travelers on the platform."
+            }
+          </Text>
+        </View>
+      )}
+
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
         <View style={styles.hero}>
@@ -536,7 +633,7 @@ export default function PackageDetailScreen({ navigation, route }) {
           )}
           
           {/* Navigation Overlays */}
-          <View style={[styles.heroNav, { paddingTop: insets.top > 0 ? insets.top : 20 }]}>
+          <View style={[styles.heroNav, { paddingTop: (!isTraveler && fullPkg.has_pending_approval) ? 12 : (insets.top > 0 ? insets.top : 20) }]}>
             <TouchableOpacity
               style={styles.glassBtn}
               onPress={() => navigation.goBack()}
@@ -589,6 +686,12 @@ export default function PackageDetailScreen({ navigation, route }) {
             <View style={styles.chip}>
               <MaterialIcons name="location-on" size={18} color="#52396f" />
               <Text style={styles.chipText}>{destination.toUpperCase()}</Text>
+            </View>
+            <View style={styles.chip}>
+              <MaterialIcons name="wb-sunny" size={18} color="#52396f" />
+              <Text style={styles.chipText}>
+                {displayPkg.best_season ? displayPkg.best_season.toUpperCase() : 'YEAR-ROUND'}
+              </Text>
             </View>
           </View>
 
@@ -817,6 +920,17 @@ export default function PackageDetailScreen({ navigation, route }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
             
+            {isTraveler && fullPkg.has_booked && !fullPkg.has_reviewed && (
+              <TouchableOpacity
+                style={styles.writeReviewBtn}
+                activeOpacity={0.8}
+                onPress={() => setReviewModalVisible(true)}
+              >
+                <MaterialIcons name="rate-review" size={18} color="#ffffff" />
+                <Text style={styles.writeReviewBtnText}>Write a Review</Text>
+              </TouchableOpacity>
+            )}
+            
             {reviewsList.length === 0 ? (
               <View style={styles.emptyReviews}>
                 <MaterialIcons name="rate-review" size={40} color="#7b757f" style={{ opacity: 0.4 }} />
@@ -900,14 +1014,14 @@ export default function PackageDetailScreen({ navigation, route }) {
                   const conv = await api.createConversation(fullPkg.id);
                   navigation.navigate('ChatDetail', { conversation: conv });
                 } catch (err) {
-                  Alert.alert("Error", err.message || "Could not start chat.");
+                  showThemedAlert("Error", err.message || "Could not start chat.");
                 }
               }}
             >
               <MaterialIcons name="forum" size={20} color="#52396f" />
               <Text style={[styles.ctaButtonText, { color: '#52396f' }]}>Chat</Text>
             </TouchableOpacity>
-
+ 
             <TouchableOpacity
               style={[styles.ctaButton, { flex: 2 }]}
               activeOpacity={0.9}
@@ -921,7 +1035,7 @@ export default function PackageDetailScreen({ navigation, route }) {
             style={styles.ctaButton}
             activeOpacity={0.9}
             onPress={() => {
-              Alert.alert("Enquiry", "Please contact the agency directly or log in as traveler to book.");
+              showThemedAlert("Enquiry", "Please contact the agency directly or log in as traveler to book.");
             }}
           >
             <Text style={styles.ctaButtonText}>Enquire Now</Text>
@@ -1157,6 +1271,107 @@ export default function PackageDetailScreen({ navigation, route }) {
               )}
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Custom Write Review Modal */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { justifyContent: 'center', backgroundColor: 'rgba(29, 26, 34, 0.6)' }]}>
+          <View style={[styles.dialogCard, { maxWidth: 340, width: '90%', alignSelf: 'center' }]}>
+            <View style={styles.dialogHeader}>
+              <Text style={styles.dialogTitle}>Write a Review</Text>
+            </View>
+            
+            <Text style={styles.reviewModalSub}>Rate your experience with this package:</Text>
+            
+            {/* Star Rating Selector */}
+            <View style={styles.ratingSelectorRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  activeOpacity={0.7}
+                  onPress={() => setReviewRating(star)}
+                  style={{ padding: 6 }}
+                >
+                  <MaterialIcons
+                    name={star <= reviewRating ? "star" : "star-border"}
+                    size={36}
+                    color="#FFD700"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Comment Input */}
+            <TextInput
+              style={styles.reviewCommentInput}
+              placeholder="Tell us what you liked or disliked..."
+              placeholderTextColor="#96919a"
+              multiline
+              numberOfLines={4}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+            />
+            
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={styles.dialogConfirmBtn}
+                onPress={handleReviewSubmit}
+                disabled={submittingReview}
+                activeOpacity={0.8}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.dialogConfirmBtnText}>Submit Review</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogCancelBtn}
+                onPress={() => setReviewModalVisible(false)}
+                disabled={submittingReview}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Themed Alert Modal */}
+      <Modal
+        visible={themedAlert.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setThemedAlert(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={[styles.modalOverlay, { justifyContent: 'center', backgroundColor: 'rgba(29, 26, 34, 0.6)' }]}>
+          <View style={[styles.dialogCard, { maxWidth: 320, width: '85%', alignSelf: 'center', alignItems: 'center' }]}>
+            <View style={[styles.dialogHeader, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+              <Text style={[styles.dialogTitle, { fontSize: 18, color: '#52396f' }]}>{themedAlert.title}</Text>
+            </View>
+            <Text style={[styles.dialogDesc, { marginVertical: 16, textAlign: 'center', fontSize: 14, color: '#1d1a22', lineHeight: 20 }]}>
+              {themedAlert.message}
+            </Text>
+            <View style={[styles.dialogActions, { borderTopWidth: 0, paddingTop: 0 }]}>
+              <TouchableOpacity
+                style={[styles.dialogConfirmBtn, { minWidth: 120, height: 40, borderRadius: 20, justifyContent: 'center' }]}
+                onPress={() => {
+                  setThemedAlert(prev => ({ ...prev, visible: false }));
+                  if (themedAlert.onConfirm) themedAlert.onConfirm();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogConfirmBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1925,5 +2140,175 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#2C2F30',
     lineHeight: 18,
+  },
+  writeReviewBtn: {
+    backgroundColor: '#52396f',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginTop: 12,
+  },
+  writeReviewBtnText: {
+    color: '#ffffff',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+  },
+  dialogCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#52396f',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  dialogHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dialogTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 18,
+    color: '#2C2F30',
+  },
+  dialogDesc: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 14,
+    color: '#595C5D',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginVertical: 12,
+  },
+  reviewModalSub: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#595C5D',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  ratingSelectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  reviewCommentInput: {
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 14,
+    color: '#2C2F30',
+    backgroundColor: '#f5f2f9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e6e0ec',
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  dialogConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#52396f',
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogConfirmBtnText: {
+    color: '#ffffff',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+  },
+  dialogCancelBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#52396f',
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCancelBtnText: {
+    color: '#52396f',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 14,
+  },
+  previewToggleBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 123, 182, 0.15)',
+    zIndex: 100,
+  },
+  previewToggleTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 12,
+    color: '#2C2F30',
+    letterSpacing: 1,
+  },
+  previewToggleButtons: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f2f9',
+    borderRadius: 20,
+    padding: 3,
+    gap: 4,
+  },
+  previewToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: 'transparent',
+  },
+  previewToggleBtnActive: {
+    backgroundColor: '#52396f',
+  },
+  previewToggleBtnTxt: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 11,
+    color: '#595C5D',
+  },
+  previewToggleBtnTxtActive: {
+    color: '#ffffff',
+  },
+  previewInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  previewInfoPending: {
+    backgroundColor: '#fffbeb',
+    borderBottomWidth: 1,
+    borderBottomColor: '#fde68a',
+  },
+  previewInfoLive: {
+    backgroundColor: '#ecfdf5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#a7f3d0',
+  },
+  previewInfoText: {
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
+  previewInfoTextPending: {
+    color: '#b45309',
+  },
+  previewInfoTextLive: {
+    color: '#047857',
   },
 });

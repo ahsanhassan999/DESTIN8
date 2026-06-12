@@ -186,6 +186,7 @@ class PackageCreateRequest(BaseModel):
     itinerary: Optional[str] = "[]"  # JSON string
     deposit_percentage: Optional[int] = 50
     refund_deadline_days: Optional[int] = 7
+    best_season: Optional[str] = "Year-round"
 
 
 class PackageUpdateRequest(BaseModel):
@@ -201,6 +202,7 @@ class PackageUpdateRequest(BaseModel):
     itinerary: Optional[str] = None
     deposit_percentage: Optional[int] = None
     refund_deadline_days: Optional[int] = None
+    best_season: Optional[str] = None
 
 
 class PackageResponse(BaseModel):
@@ -221,6 +223,7 @@ class PackageResponse(BaseModel):
     takedown_reason: Optional[str] = None
     deposit_percentage: int = 50
     refund_deadline_days: int = 7
+    best_season: Optional[str] = "Year-round"
     created_at: str
     average_rating: Optional[float] = None
     review_count: int = 0

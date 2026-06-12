@@ -101,6 +101,7 @@ class Package(Base):
     itinerary: Mapped[str] = mapped_column(Text, default="[]")  # JSON string
     deposit_percentage: Mapped[int] = mapped_column(Integer, default=50)
     refund_deadline_days: Mapped[int] = mapped_column(Integer, default=7)
+    best_season: Mapped[str | None] = mapped_column(String(50), nullable=True, default="Year-round")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -274,3 +275,23 @@ class SupportTicket(Base):
     # Relationships
     user: Mapped["User"] = relationship("User")
     package: Mapped["Package | None"] = relationship("Package")
+    tags: Mapped[list["TicketTag"]] = relationship("TicketTag", secondary="ticket_tag_links", back_populates="tickets")
+
+
+class TicketTag(Base):
+    __tablename__ = "ticket_tags"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    color: Mapped[str] = mapped_column(String(20), default="#967BB6")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tickets: Mapped[list["SupportTicket"]] = relationship("SupportTicket", secondary="ticket_tag_links", back_populates="tags")
+
+
+class TicketTagLink(Base):
+    __tablename__ = "ticket_tag_links"
+
+    ticket_id: Mapped[str] = mapped_column(String(36), ForeignKey("support_tickets.id", ondelete="CASCADE"), primary_key=True)
+    tag_id: Mapped[str] = mapped_column(String(36), ForeignKey("ticket_tags.id", ondelete="CASCADE"), primary_key=True)

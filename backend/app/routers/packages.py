@@ -40,13 +40,15 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
         "is_takedown": pkg.is_takedown,
         "takedown_reason": pkg.takedown_reason,
         "deposit_percentage": pkg.deposit_percentage,
+        "refund_deadline_days": pkg.refund_deadline_days,
+        "best_season": pkg.best_season,
         "created_at": str(pkg.created_at),
         "average_rating": avg_rating,
         "review_count": review_count,
     }
 
 
-async def _enrich_package(pkg: Package, db: AsyncSession, markup: bool = False) -> dict:
+async def _enrich_package(pkg: Package, db: AsyncSession, markup: bool = False, for_agency: bool = False) -> dict:
     agency_result = await db.execute(select(User).where(User.id == pkg.agency_id))
     agency = agency_result.scalar_one_or_none()
     agency_name = agency.name if agency else "Unknown"
@@ -57,7 +59,50 @@ async def _enrich_package(pkg: Package, db: AsyncSession, markup: bool = False) 
     )
     avg_rating, review_count = reviews_result.one()
 
-    return _package_to_dict(pkg, agency_name, round(avg_rating, 1) if avg_rating else None, review_count or 0, markup=markup)
+    pkg_dict = _package_to_dict(pkg, agency_name, round(avg_rating, 1) if avg_rating else None, review_count or 0, markup=markup)
+
+    # Check for pending approval edits
+    ticket_res = await db.execute(
+        select(SupportTicket).where(
+            SupportTicket.package_id == pkg.id,
+            SupportTicket.status.in_(["open", "pending_approval"]),
+            SupportTicket.ticket_type.in_(["compensation_request", "package_edit_request"])
+        )
+    )
+    pending_ticket = ticket_res.scalar_one_or_none()
+    
+    if pending_ticket:
+        pkg_dict["has_pending_approval"] = True
+        pkg_dict["pending_ticket_id"] = pending_ticket.id
+        try:
+            import json
+            changes = json.loads(pending_ticket.proposed_changes) if pending_ticket.proposed_changes else {}
+            pkg_dict["pending_changes"] = changes
+            # Save original live values before overriding
+            pkg_dict["live_version"] = {
+                "title": pkg_dict.get("title"),
+                "destination": pkg_dict.get("destination"),
+                "price": pkg_dict.get("price"),
+                "duration_days": pkg_dict.get("duration_days"),
+                "description": pkg_dict.get("description"),
+                "included_services": pkg_dict.get("included_services"),
+                "cover_image": pkg_dict.get("cover_image"),
+                "itinerary": pkg_dict.get("itinerary"),
+                "deposit_percentage": pkg_dict.get("deposit_percentage"),
+                "best_season": pkg_dict.get("best_season"),
+            }
+            if for_agency:
+                # Merge proposed changes so the agency views the updated version in their screens
+                for k, v in changes.items():
+                    if v is not None:
+                        pkg_dict[k] = v
+        except Exception:
+            pkg_dict["pending_changes"] = None
+    else:
+        pkg_dict["has_pending_approval"] = False
+        pkg_dict["pending_changes"] = None
+
+    return pkg_dict
 
 
 # ─── Public / Traveler Browse ─────────────────────────────────────────────────
@@ -98,7 +143,38 @@ async def get_package(
     pkg = result.scalar_one_or_none()
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found.")
-    return await _enrich_package(pkg, db, markup=True)
+        
+    is_traveler = (current_user.role == "traveler")
+    for_agency = (current_user.role == "agency" and pkg.agency_id == current_user.id)
+    
+    enrich_data = await _enrich_package(pkg, db, markup=is_traveler, for_agency=for_agency)
+    
+    has_booked = False
+    has_reviewed = False
+    if is_traveler:
+        booking_result = await db.execute(
+            select(Booking).where(
+                Booking.package_id == package_id,
+                Booking.traveler_id == current_user.id,
+                Booking.status != BookingStatus.cancelled
+            )
+        )
+        if booking_result.scalars().first():
+            has_booked = True
+            
+        review_result = await db.execute(
+            select(Review).where(
+                Review.package_id == package_id,
+                Review.user_id == current_user.id
+            )
+        )
+        if review_result.scalars().first():
+            has_reviewed = True
+            
+    enrich_data["has_booked"] = has_booked
+    enrich_data["has_reviewed"] = has_reviewed
+    
+    return enrich_data
 
 
 # ─── Agency Package Management ────────────────────────────────────────────────
@@ -113,7 +189,7 @@ async def get_my_packages(
         .order_by(Package.created_at.desc())
     )
     packages = result.scalars().all()
-    return [await _enrich_package(p, db) for p in packages]
+    return [await _enrich_package(p, db, for_agency=True) for p in packages]
 
 
 @router.post("/agency/create", status_code=201)
@@ -135,6 +211,8 @@ async def create_package(
         is_active=data.is_active if data.is_active is not None else True,
         itinerary=data.itinerary or "[]",
         deposit_percentage=data.deposit_percentage if data.deposit_percentage is not None else 50,
+        refund_deadline_days=data.refund_deadline_days if data.refund_deadline_days is not None else 7,
+        best_season=data.best_season or "Year-round",
     )
     db.add(pkg)
     await db.commit()
@@ -192,92 +270,71 @@ async def update_package(
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found or not yours.")
 
-    # Check lock status
-    if await is_package_locked(package_id, db):
-        raise HTTPException(
-            status_code=400,
-            detail="This package is locked because it has confirmed bookings past the refund deadline. Direct edits are not allowed. Please submit a compensation request ticket."
-        )
-
-    # Determine which traveler bookings are currently within their refund window
-    # so they can receive system notification messages
-    def parse_date(date_str: str) -> Optional[datetime]:
-        if not date_str or date_str.upper() in ("TBD", "—", ""):
-            return None
-        for fmt in ("%b %d, %Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
-            try:
-                return datetime.strptime(date_str, fmt)
-            except ValueError:
-                continue
-        return None
-
-    bookings_res = await db.execute(
-        select(Booking).where(
-            Booking.package_id == package_id,
-            Booking.status == BookingStatus.confirmed
-        )
+    # Determine if this request modifies details (excluding active status toggle)
+    is_detail_edit = any(
+        v is not None for k, v in data.dict().items() if k != "is_active"
     )
-    bookings = bookings_res.scalars().all()
-    
-    notified_travelers = []
-    for b in bookings:
-        target_date = b.travel_date or pkg.departure_date
-        travel_dt = parse_date(target_date)
-        if travel_dt:
-            days_until_travel = (travel_dt - datetime.utcnow()).days
-            if days_until_travel >= pkg.refund_deadline_days:
-                notified_travelers.append(b.traveler_id)
 
-    if data.title is not None: pkg.title = data.title
-    if data.destination is not None: pkg.destination = data.destination
-    if data.price is not None: pkg.price = data.price
-    if data.duration_days is not None: pkg.duration_days = data.duration_days
-    if data.description is not None: pkg.description = data.description
-    if data.included_services is not None: pkg.included_services = data.included_services
-    if data.cover_image is not None: pkg.cover_image = data.cover_image
-    if data.departure_date is not None: pkg.departure_date = data.departure_date
-    if data.is_active is not None:
-        if data.is_active and pkg.is_takedown:
+    if is_detail_edit:
+        # Check lock status
+        if await is_package_locked(package_id, db):
             raise HTTPException(
                 status_code=400,
-                detail=f"This package has been taken down by the administrator. Reason: {pkg.takedown_reason or 'No reason provided'}. Please contact support."
+                detail="This package is locked because it has confirmed bookings past the refund deadline. Direct edits are not allowed. Please submit a compensation request ticket."
             )
-        pkg.is_active = data.is_active
-    if data.itinerary is not None: pkg.itinerary = data.itinerary
-    if data.deposit_percentage is not None: pkg.deposit_percentage = data.deposit_percentage
-    if data.refund_deadline_days is not None: pkg.refund_deadline_days = data.refund_deadline_days
-
-    # Dispatch system warnings in chat logs
-    for traveler_id in notified_travelers:
-        conv_res = await db.execute(
-            select(Conversation).where(
-                Conversation.package_id == pkg.id,
-                Conversation.traveler_id == traveler_id
-            )
-        )
-        conv = conv_res.scalar_one_or_none()
-        if not conv:
-            conv = Conversation(
-                traveler_id=traveler_id,
-                agency_id=pkg.agency_id,
-                package_id=pkg.id
-            )
-            db.add(conv)
-            await db.flush()
             
-        sys_msg = Message(
-            conversation_id=conv.id,
-            sender_role="system",
-            sender_id=None,
-            text="Notice: The agency has updated the package details. Since you are within the cancellation window, you may request a refund if you wish. Please state the reason for your refund request.",
-            is_warning=True
+        # Extract proposed changes
+        proposed = {}
+        for k, v in data.dict().items():
+            if v is not None:
+                proposed[k] = v
+                
+        import json
+        ticket_res = await db.execute(
+            select(SupportTicket).where(
+                SupportTicket.package_id == package_id,
+                SupportTicket.status.in_(["open", "pending_approval"]),
+                SupportTicket.ticket_type == "package_edit_request"
+            )
         )
-        db.add(sys_msg)
+        ticket = ticket_res.scalar_one_or_none()
         
-    await db.commit()
-    await db.refresh(pkg)
-
-    return await _enrich_package(pkg, db)
+        if ticket:
+            try:
+                existing_changes = json.loads(ticket.proposed_changes) if ticket.proposed_changes else {}
+            except Exception:
+                existing_changes = {}
+            existing_changes.update(proposed)
+            ticket.proposed_changes = json.dumps(existing_changes)
+            ticket.status = "pending_approval"
+        else:
+            ticket = SupportTicket(
+                user_id=current_user.id,
+                package_id=package_id,
+                ticket_type="package_edit_request",
+                subject=f"Package Update Request: {pkg.title}",
+                description=f"Agency '{current_user.name}' requested updates to package '{pkg.title}'.",
+                proposed_changes=json.dumps(proposed),
+                status="pending_approval"
+            )
+            db.add(ticket)
+            
+        await db.commit()
+        return await _enrich_package(pkg, db, for_agency=True)
+        
+    else:
+        # Apply toggling active status directly
+        if data.is_active is not None:
+            if data.is_active and pkg.is_takedown:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"This package has been taken down by the administrator. Reason: {pkg.takedown_reason or 'No reason provided'}. Please contact support."
+                )
+            pkg.is_active = data.is_active
+            
+        await db.commit()
+        await db.refresh(pkg)
+        return await _enrich_package(pkg, db, for_agency=True)
 
 
 @router.delete("/agency/{package_id}")
@@ -345,11 +402,22 @@ async def create_review(
     if not pkg_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Package not found.")
 
+    # Check that user has booked this package (not cancelled status)
+    booking_result = await db.execute(
+        select(Booking).where(
+            Booking.package_id == package_id,
+            Booking.traveler_id == current_user.id,
+            Booking.status != BookingStatus.cancelled
+        )
+    )
+    if not booking_result.scalars().first():
+        raise HTTPException(status_code=403, detail="You can only review packages you have booked.")
+
     # Check no duplicate review
     existing = await db.execute(
         select(Review).where(Review.package_id == package_id, Review.user_id == current_user.id)
     )
-    if existing.scalar_one_or_none():
+    if existing.scalars().first():
         raise HTTPException(status_code=400, detail="You have already reviewed this package.")
 
     review = Review(

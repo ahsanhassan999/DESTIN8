@@ -5,7 +5,7 @@ from sqlalchemy import func, delete
 from typing import Optional
 
 from app.database import get_db
-from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking, BookingStatus, PaymentTransaction, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket
+from app.models import User, AgencyProfile, Package, UserRole, UserStatus, Wishlist, Review, Booking, BookingStatus, PaymentTransaction, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket, TicketTag, TicketTagLink
 from pydantic import BaseModel
 from app.schemas import (
     AgencyWithProfileResponse,
@@ -919,7 +919,8 @@ async def list_admin_tickets(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin_user),
 ):
-    query = select(SupportTicket).order_by(SupportTicket.created_at.desc())
+    from sqlalchemy.orm import selectinload
+    query = select(SupportTicket).options(selectinload(SupportTicket.tags)).order_by(SupportTicket.created_at.desc())
     if status:
         query = query.where(SupportTicket.status == status)
     if ticket_type:
@@ -934,11 +935,27 @@ async def list_admin_tickets(
         user = user_res.scalar_one_or_none()
         
         package_title = None
+        package_details = None
         if t.package_id:
             pkg_res = await db.execute(select(Package).where(Package.id == t.package_id))
             pkg = pkg_res.scalar_one_or_none()
             if pkg:
                 package_title = pkg.title
+                package_details = {
+                    "title": pkg.title,
+                    "destination": pkg.destination,
+                    "price": pkg.price,
+                    "duration_days": pkg.duration_days,
+                    "description": pkg.description,
+                    "included_services": pkg.included_services,
+                    "cover_image": pkg.cover_image,
+                    "departure_date": pkg.departure_date,
+                    "is_active": pkg.is_active,
+                    "itinerary": pkg.itinerary,
+                    "deposit_percentage": pkg.deposit_percentage,
+                    "refund_deadline_days": pkg.refund_deadline_days,
+                    "best_season": pkg.best_season,
+                }
                 
         output.append({
             "id": t.id,
@@ -946,6 +963,7 @@ async def list_admin_tickets(
             "user_name": user.name if user else "Unknown",
             "package_id": t.package_id,
             "package_title": package_title,
+            "package_details": package_details,
             "ticket_type": t.ticket_type,
             "subject": t.subject,
             "description": t.description,
@@ -954,8 +972,123 @@ async def list_admin_tickets(
             "status": t.status,
             "admin_notes": t.admin_notes,
             "created_at": str(t.created_at),
+            "tags": [
+                {"id": tag.id, "name": tag.name, "color": tag.color}
+                for tag in t.tags
+            ],
         })
     return output
+
+
+# ─── Ticket Tagging schemas and endpoints ─────────────────────────────────────
+
+class TicketTagResponse(BaseModel):
+    id: str
+    name: str
+    color: str
+
+    class Config:
+        from_attributes = True
+
+
+class TicketTagsRequest(BaseModel):
+    tag_ids: list[str]
+
+
+@router.get("/tickets/tags", response_model=list[TicketTagResponse])
+async def get_admin_ticket_tags(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    tag_res = await db.execute(select(TicketTag))
+    tags = tag_res.scalars().all()
+    if not tags:
+        default_ticket_tags = [
+            {"name": "Urgent", "color": "#EF4444"},
+            {"name": "Compensation", "color": "#F59E0B"},
+            {"name": "Bug", "color": "#D97706"},
+            {"name": "General", "color": "#3B82F6"},
+            {"name": "Resolved", "color": "#10B981"},
+            {"name": "Pending Review", "color": "#8B5CF6"},
+        ]
+        for dt in default_ticket_tags:
+            new_tag = TicketTag(name=dt["name"], color=dt["color"])
+            db.add(new_tag)
+        await db.commit()
+        tag_res = await db.execute(select(TicketTag))
+        tags = tag_res.scalars().all()
+
+    return [
+        TicketTagResponse(id=t.id, name=t.name, color=t.color)
+        for t in tags
+    ]
+
+
+@router.post("/tickets/tags", response_model=TicketTagResponse, status_code=201)
+async def create_admin_ticket_tag(
+    data: TagCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    # Check if name unique
+    exist_res = await db.execute(select(TicketTag).where(TicketTag.name == data.name))
+    if exist_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Ticket tag with this name already exists.")
+
+    new_tag = TicketTag(name=data.name, color=data.color)
+    db.add(new_tag)
+    await db.commit()
+    await db.refresh(new_tag)
+
+    return TicketTagResponse(id=new_tag.id, name=new_tag.name, color=new_tag.color)
+
+
+@router.delete("/tickets/tags/{tag_id}")
+async def delete_admin_ticket_tag(
+    tag_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    tag_res = await db.execute(select(TicketTag).where(TicketTag.id == tag_id))
+    tag = tag_res.scalar_one_or_none()
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found.")
+
+    await db.delete(tag)
+    await db.commit()
+    return {"message": "Ticket tag deleted successfully."}
+
+
+@router.patch("/tickets/{ticket_id}/tags")
+async def update_ticket_tags(
+    ticket_id: str,
+    data: TicketTagsRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    from sqlalchemy.orm import selectinload
+    ticket_res = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.tags))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = ticket_res.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+
+    if data.tag_ids is not None:
+        if data.tag_ids:
+            tags_res = await db.execute(select(TicketTag).where(TicketTag.id.in_(data.tag_ids)))
+            selected_tags = tags_res.scalars().all()
+        else:
+            selected_tags = []
+        ticket.tags = selected_tags
+        await db.commit()
+
+    return {
+        "message": "Ticket tags updated successfully.",
+        "tag_ids": [t.id for t in ticket.tags]
+    }
 
 
 @router.patch("/tickets/{ticket_id}/action")
@@ -977,8 +1110,8 @@ async def action_admin_ticket(
     ticket.admin_notes = data.notes
     
     if action == "approve":
-        if ticket.ticket_type != "compensation_request":
-            raise HTTPException(status_code=400, detail="Only compensation_request tickets can be approved.")
+        if ticket.ticket_type not in ("compensation_request", "package_edit_request"):
+            raise HTTPException(status_code=400, detail="Only compensation_request and package_edit_request tickets can be approved.")
         if not ticket.package_id:
             raise HTTPException(status_code=400, detail="Ticket is missing package_id.")
             
@@ -996,11 +1129,67 @@ async def action_admin_ticket(
         allowed_fields = {
             "title", "destination", "price", "duration_days", "description",
             "included_services", "cover_image", "departure_date", "is_active",
-            "itinerary", "deposit_percentage", "refund_deadline_days"
+            "itinerary", "deposit_percentage", "refund_deadline_days", "best_season"
         }
         for key, value in changes.items():
             if key in allowed_fields:
                 setattr(pkg, key, value)
+                
+        # Dispatch system warnings to traveler chats if they are within their cancellation window
+        def parse_date(date_str: str):
+            if not date_str or date_str.upper() in ("TBD", "—", ""):
+                return None
+            for fmt in ("%b %d, %Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+                try:
+                    from datetime import datetime
+                    return datetime.strptime(date_str, fmt)
+                except ValueError:
+                    continue
+            return None
+
+        bookings_res = await db.execute(
+            select(Booking).where(
+                Booking.package_id == pkg.id,
+                Booking.status == BookingStatus.confirmed
+            )
+        )
+        bookings = bookings_res.scalars().all()
+        
+        notified_travelers = []
+        for b in bookings:
+            target_date = b.travel_date or pkg.departure_date
+            from datetime import datetime
+            travel_dt = parse_date(target_date)
+            if travel_dt:
+                days_until_travel = (travel_dt - datetime.utcnow()).days
+                if days_until_travel >= pkg.refund_deadline_days:
+                    notified_travelers.append(b.traveler_id)
+
+        for traveler_id in notified_travelers:
+            conv_res = await db.execute(
+                select(Conversation).where(
+                    Conversation.package_id == pkg.id,
+                    Conversation.traveler_id == traveler_id
+                )
+            )
+            conv = conv_res.scalar_one_or_none()
+            if not conv:
+                conv = Conversation(
+                    traveler_id=traveler_id,
+                    agency_id=pkg.agency_id,
+                    package_id=pkg.id
+                )
+                db.add(conv)
+                await db.flush()
+                
+            sys_msg = Message(
+                conversation_id=conv.id,
+                sender_role="system",
+                sender_id=None,
+                text="Notice: The agency has updated the package details. Since you are within the cancellation window, you may request a refund if you wish. Please state the reason for your refund request.",
+                is_warning=True
+            )
+            db.add(sys_msg)
                 
         ticket.status = "approved"
         

@@ -253,6 +253,17 @@ export default function MyPackagesScreen({ navigation }) {
                   colors={['transparent', 'rgba(0, 0, 0, 0.75)']}
                   style={StyleSheet.absoluteFill}
                 />
+                
+                {/* Approval Status Badge */}
+                <View style={[
+                  styles.approvalBadge, 
+                  pkg.raw.has_pending_approval ? styles.approvalPending : styles.approvalLive
+                ]}>
+                  <Text style={styles.approvalBadgeTxt}>
+                    {pkg.raw.has_pending_approval ? "PENDING APPROVAL" : "LIVE"}
+                  </Text>
+                </View>
+
                 <View style={styles.imageOverlay}>
                   <View style={styles.tagsRow}>
                     {(Array.isArray(pkg.tags) ? pkg.tags : []).map((tag) => (
@@ -295,6 +306,13 @@ export default function MyPackagesScreen({ navigation }) {
                   </View>
 
                   <View style={styles.iconsWrap}>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('PackageDetail', { package: pkg.raw })}
+                    >
+                      <MaterialIcons name="visibility" size={20} color={C.primary} style={{ backgroundColor: 'transparent' }} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.iconBtn}
                       activeOpacity={0.7}
@@ -582,5 +600,32 @@ const styles = StyleSheet.create({
   },
   switchThumbInactive: {
     alignSelf: 'flex-start',
+  },
+  approvalBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  approvalPending: {
+    backgroundColor: '#D97706', // Premium dark amber/yellow
+  },
+  approvalLive: {
+    backgroundColor: '#059669', // Premium emerald/green
+  },
+  approvalBadgeTxt: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 10,
+    color: '#ffffff',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 });

@@ -12,6 +12,7 @@ import {
   Image,
   Keyboard,
   Alert,
+  Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
@@ -125,6 +126,13 @@ export default function PostPackageScreen({ navigation, route }) {
   const [ticketDescription, setTicketDescription] = useState('');
   const [ticketCompensation, setTicketCompensation] = useState('');
 
+  // Themed Alert State
+  const [themedAlert, setThemedAlert] = useState({ visible: false, title: '', message: '', onConfirm: null });
+
+  const showThemedAlert = (title, message, onConfirm = null) => {
+    setThemedAlert({ visible: true, title, message, onConfirm });
+  };
+
   const editingPackage = route.params?.package;
 
 
@@ -180,6 +188,7 @@ export default function PostPackageScreen({ navigation, route }) {
       if (editingPackage.max_group) setMaxGroup(String(editingPackage.max_group));
       if (editingPackage.start_point) setStartPoint(editingPackage.start_point);
       if (editingPackage.meal_plan) setMealPlan(editingPackage.meal_plan);
+      if (editingPackage.best_season) setBestSeason(editingPackage.best_season);
       if (editingPackage.languages) {
         try {
           const parsedLangs = typeof editingPackage.languages === 'string'
@@ -557,10 +566,9 @@ export default function PostPackageScreen({ navigation, route }) {
     const isPublish = status === 'Publish';
 
     if (isPublish && editingPackage?.is_takedown) {
-      Alert.alert(
+      showThemedAlert(
         "Action Blocked",
-        `This package has been taken down by the administrator.\n\nReason: ${editingPackage.takedown_reason || 'No reason provided.'}\n\nPlease open a support ticket to resolve this.`,
-        [{ text: "OK" }]
+        `This package has been taken down by the administrator.\n\nReason: ${editingPackage.takedown_reason || 'No reason provided.'}\n\nPlease open a support ticket to resolve this.`
       );
       return;
     }
@@ -585,6 +593,7 @@ export default function PostPackageScreen({ navigation, route }) {
           itinerary: days,
           deposit_percentage: depositPercentage,
           refund_deadline_days: refundDeadlineDays,
+          best_season: bestSeason,
         });
       } else {
         await api.createPackage({
@@ -600,6 +609,7 @@ export default function PostPackageScreen({ navigation, route }) {
           itinerary: days,
           deposit_percentage: depositPercentage,
           refund_deadline_days: refundDeadlineDays,
+          best_season: bestSeason,
         });
       }
 
@@ -608,31 +618,38 @@ export default function PostPackageScreen({ navigation, route }) {
         await AsyncStorage.removeItem('destin8_package_draft');
       } catch (_) {}
 
-      setLoading(false);
-      setSuccessMessage(
-        editingPackage
-          ? (isPublish ? 'Package updated and published!' : 'Package updated successfully!')
-          : (isPublish ? 'Package published successfully!' : 'Package saved as draft!')
-      );
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        navigation.goBack();
-      }, 1800);
+      if (editingPackage) {
+        setLoading(false);
+        showThemedAlert(
+          'Edit Submitted',
+          'Your proposed changes have been submitted to the Admin for approval. The edits will become live once approved.',
+          () => navigation.goBack()
+        );
+      } else {
+        setLoading(false);
+        setSuccessMessage(
+          isPublish ? 'Package published successfully!' : 'Package saved as draft!'
+        );
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+          navigation.goBack();
+        }, 1800);
+      }
     } catch (err) {
       setLoading(false);
       const errMsg = err?.message || 'Failed to submit package. Please try again.';
       if (editingPackage && (errMsg.toLowerCase().includes('locked') || errMsg.toLowerCase().includes('ticket'))) {
         setShowTicketModal(true);
       } else {
-        Alert.alert('Error', errMsg);
+        showThemedAlert('Error', errMsg);
       }
     }
   };
 
   const submitCompensationTicket = async () => {
     if (!ticketDescription.trim()) {
-      Alert.alert('Required', 'Please explain your reason for request.');
+      showThemedAlert('Required', 'Please explain your reason for request.');
       return;
     }
     setLoading(true);
@@ -650,6 +667,7 @@ export default function PostPackageScreen({ navigation, route }) {
       itinerary: JSON.stringify(days),
       deposit_percentage: depositPercentage,
       refund_deadline_days: refundDeadlineDays,
+      best_season: bestSeason,
     };
 
     try {
@@ -663,14 +681,14 @@ export default function PostPackageScreen({ navigation, route }) {
       });
       setLoading(false);
       setShowTicketModal(false);
-      Alert.alert(
+      showThemedAlert(
         'Ticket Submitted',
         'Your request has been submitted to the Admin. It will be reviewed shortly. Changes will apply once approved.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        () => navigation.goBack()
       );
     } catch (err) {
       setLoading(false);
-      Alert.alert('Error', err?.message || 'Failed to submit support ticket.');
+      showThemedAlert('Error', err?.message || 'Failed to submit support ticket.');
     }
   };
 
@@ -701,6 +719,16 @@ export default function PostPackageScreen({ navigation, route }) {
             <View style={styles.successBox}>
               <MaterialIcons name="check-circle" size={20} color={C.success} />
               <Text style={styles.successText}>{successMessage}</Text>
+            </View>
+          )}
+
+          {/* Pending Approval Warning Banner */}
+          {editingPackage?.has_pending_approval && (
+            <View style={styles.warningBanner}>
+              <MaterialIcons name="warning" size={20} color="#b45309" />
+              <Text style={styles.warningBannerTxt}>
+                Notice: You have a pending edit request for this package. Submitting new edits will overwrite the previous pending request.
+              </Text>
             </View>
           )}
 
@@ -1600,7 +1628,12 @@ export default function PostPackageScreen({ navigation, route }) {
       </KeyboardAvoidingView>
 
       {/* Draft Resume Modal overlay */}
-      {showResumeModal && (
+      <Modal
+        visible={showResumeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowResumeModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -1628,12 +1661,21 @@ export default function PostPackageScreen({ navigation, route }) {
             </View>
           </View>
         </View>
-      )}
+      </Modal>
 
       {/* Ticket Modal overlay */}
-      {showTicketModal && (
+      <Modal
+        visible={showTicketModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTicketModal(false)}
+      >
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={{flexGrow: 1, justifyContent: 'center', width: '100%'}}>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={[styles.modalCard, { maxWidth: 400, alignSelf: 'center' }]}>
               <View style={styles.modalHeader}>
                 <MaterialIcons name="confirmation-number" size={24} color={C.primary} />
@@ -1695,7 +1737,38 @@ export default function PostPackageScreen({ navigation, route }) {
             </View>
           </ScrollView>
         </View>
-      )}
+      </Modal>
+
+      {/* Custom Themed Alert Modal */}
+      <Modal
+        visible={themedAlert.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setThemedAlert(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 320, width: '85%', alignSelf: 'center', alignItems: 'center' }]}>
+            <View style={[styles.modalHeader, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+              <Text style={[styles.modalTitle, { fontSize: 18, color: C.primary }]}>{themedAlert.title}</Text>
+            </View>
+            <Text style={[styles.modalDesc, { marginVertical: 16, textAlign: 'center', fontSize: 14, color: C.onSurf, lineHeight: 20 }]}>
+              {themedAlert.message}
+            </Text>
+            <View style={[styles.modalActions, { borderTopWidth: 0, paddingTop: 0 }]}>
+              <TouchableOpacity
+                style={[styles.modalResumeBtn, { minWidth: 120, height: 40, borderRadius: 20, justifyContent: 'center' }]}
+                onPress={() => {
+                  setThemedAlert(prev => ({ ...prev, visible: false }));
+                  if (themedAlert.onConfirm) themedAlert.onConfirm();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalResumeBtnTxt}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2213,11 +2286,10 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     backgroundColor: 'rgba(44, 47, 48, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 9999,
     padding: 24,
   },
   modalCard: {
@@ -2318,7 +2390,7 @@ const styles = StyleSheet.create({
   },
   ticketField: {
     gap: 6,
-    width: '100%',
+    alignSelf: 'stretch',
   },
   ticketInputLabel: {
     fontFamily: 'Manrope_700Bold',
@@ -2338,5 +2410,24 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: 'rgba(44, 47, 48, 0.08)',
+    alignSelf: 'stretch',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fffbeb',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    marginBottom: 8,
+  },
+  warningBannerTxt: {
+    flex: 1,
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+    color: '#b45309',
+    lineHeight: 18,
   },
 });

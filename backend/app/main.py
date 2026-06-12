@@ -43,7 +43,7 @@ app.include_router(chat.router)
 async def on_startup():
     from sqlalchemy import text
     from datetime import datetime
-    from app.models import Conversation, Message, ChatTag, ConversationTagLink
+    from app.models import Conversation, Message, ChatTag, ConversationTagLink, TicketTag, TicketTagLink
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Seed default tags if they don't exist
@@ -66,6 +66,28 @@ async def on_startup():
                     )
         except Exception as e:
             print("Failed to seed default tags:", e)
+
+        # Seed default ticket tags if they don't exist
+        try:
+            res = await conn.execute(text("SELECT COUNT(*) FROM ticket_tags"))
+            if res.scalar() == 0:
+                import uuid
+                default_ticket_tags = [
+                    ("Urgent", "#EF4444"),
+                    ("Compensation", "#F59E0B"),
+                    ("Bug", "#D97706"),
+                    ("General", "#3B82F6"),
+                    ("Resolved", "#10B981"),
+                    ("Pending Review", "#8B5CF6")
+                ]
+                for name, color in default_ticket_tags:
+                    tag_id = str(uuid.uuid4())
+                    await conn.execute(
+                        text("INSERT INTO ticket_tags (id, name, color, created_at) VALUES (:id, :name, :color, :created_at)"),
+                        {"id": tag_id, "name": name, "color": color, "created_at": datetime.utcnow()}
+                    )
+        except Exception as e:
+            print("Failed to seed default ticket tags:", e)
         # Safe migrations for existing DB instances
         try:
             await conn.execute(text("ALTER TABLE packages ADD COLUMN itinerary TEXT DEFAULT '[]'"))
@@ -117,6 +139,10 @@ async def on_startup():
             pass
         try:
             await conn.execute(text("ALTER TABLE agency_profiles ADD COLUMN bank_rejection_reason TEXT"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(text("ALTER TABLE packages ADD COLUMN best_season VARCHAR(50) DEFAULT 'Year-round'"))
         except Exception:
             pass
     print("[OK] DESTIN8 API started - database tables created and migrated.")

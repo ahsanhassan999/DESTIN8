@@ -209,5 +209,27 @@ export const api = {
       body: JSON.stringify({ action, notes }),
     });
   },
+
+  getTicketTags: async () => {
+    return await request('/api/admin/tickets/tags', { method: 'GET' });
+  },
+
+  createTicketTag: async (name, color) => {
+    return await request('/api/admin/tickets/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name, color }),
+    });
+  },
+
+  deleteTicketTag: async (tagId) => {
+    return await request(`/api/admin/tickets/tags/${tagId}`, { method: 'DELETE' });
+  },
+
+  updateTicketTags: async (ticketId, tagIds) => {
+    return await request(`/api/admin/tickets/${ticketId}/tags`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tag_ids: tagIds }),
+    });
+  },
 };
 

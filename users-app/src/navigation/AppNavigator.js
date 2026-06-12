@@ -241,6 +241,7 @@ function AgencyStack() {
     <Stack.Navigator screenOptions={NO_HEADER} initialRouteName="AgencyTabs">
       <Stack.Screen name="AgencyTabs" component={AgencyTabs} />
       <Stack.Screen name="PostPackageForm" component={PostPackageScreen} />
+      <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
       <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
       <Stack.Screen name="Profile"    component={AgencyProfileScreen} />
       <Stack.Screen name="BankDetails" component={BankDetailsScreen} />

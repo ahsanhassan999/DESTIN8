@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Use host IP address for local API calls to support emulators and physical devices (Expo Go)
-export const API_URL = 'http://192.168.0.103:8000';
+export const API_URL = 'http://192.168.0.108:8000';
 
 async function request(endpoint, options = {}) {
   const savedUser = await AsyncStorage.getItem('destin8_user');
@@ -122,6 +122,7 @@ export const api = {
         itinerary: JSON.stringify(pkgData.itinerary || pkgData.days || []),
         deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : 50,
         refund_deadline_days: pkgData.refund_deadline_days !== undefined ? parseInt(pkgData.refund_deadline_days, 10) : 7,
+        best_season: pkgData.best_season || "Year-round",
       }),
     });
   },
@@ -142,6 +143,7 @@ export const api = {
         itinerary: (pkgData.itinerary || pkgData.days) ? JSON.stringify(pkgData.itinerary || pkgData.days) : undefined,
         deposit_percentage: pkgData.deposit_percentage !== undefined ? parseInt(pkgData.deposit_percentage, 10) : undefined,
         refund_deadline_days: pkgData.refund_deadline_days !== undefined ? parseInt(pkgData.refund_deadline_days, 10) : undefined,
+        best_season: pkgData.best_season,
       }),
     });
   },
