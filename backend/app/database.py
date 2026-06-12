@@ -14,6 +14,12 @@ if DATABASE_URL.startswith("sqlite"):
     engine_args["connect_args"] = {"check_same_thread": False}
 else:
     # Disable prepared statements cache for pgBouncer (Supabase Transaction Pooler) compatibility
+    # Pass prepared_statement_cache_size=0 to SQLAlchemy via URL query params
+    if "?" in DATABASE_URL:
+        DATABASE_URL += "&prepared_statement_cache_size=0"
+    else:
+        DATABASE_URL += "?prepared_statement_cache_size=0"
+
     engine_args["connect_args"] = {
         "statement_cache_size": 0,
         "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
