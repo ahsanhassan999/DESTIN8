@@ -18,6 +18,8 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 class BookingCreate(BaseModel):
     package_id: str
     num_travelers: int = 1
+    male_count: Optional[int] = 1
+    female_count: Optional[int] = 0
     travel_date: Optional[str] = None
     notes: Optional[str] = None
 
@@ -27,6 +29,8 @@ class BookingResponse(BaseModel):
     package_id: str
     status: str
     num_travelers: int
+    male_count: Optional[int] = 1
+    female_count: Optional[int] = 0
     travel_date: Optional[str]
     notes: Optional[str]
     # Denormalized package fields for the UI
@@ -54,10 +58,35 @@ async def create_booking(
     if not pkg or not pkg.is_active:
         raise HTTPException(status_code=404, detail="Package not found or unavailable.")
 
+    # Check Family trip booking rules
+    is_family = False
+    if pkg.categories:
+        try:
+            import json
+            cat_list = json.loads(pkg.categories) if isinstance(pkg.categories, str) else pkg.categories
+            if any(str(c).lower() == 'family' for c in cat_list):
+                is_family = True
+        except Exception:
+            if 'family' in str(pkg.categories or '').lower():
+                is_family = True
+
+    male_count = data.male_count if data.male_count is not None else 1
+    female_count = data.female_count if data.female_count is not None else 0
+
+    if is_family:
+        if data.num_travelers < 2:
+            raise HTTPException(status_code=400, detail="Family trip packages require a minimum of 2 travelers.")
+        if male_count < 1 or female_count < 1:
+            raise HTTPException(status_code=400, detail="Family trip bookings require at least 1 male and 1 female traveler.")
+        if (male_count + female_count) != data.num_travelers:
+            raise HTTPException(status_code=400, detail=f"Male count ({male_count}) + Female count ({female_count}) must equal total travelers ({data.num_travelers}).")
+
     booking = Booking(
         traveler_id=current_user.id,
         package_id=data.package_id,
         num_travelers=data.num_travelers,
+        male_count=male_count,
+        female_count=female_count,
         travel_date=data.travel_date,
         notes=data.notes,
         status=BookingStatus.pending,
@@ -78,6 +107,8 @@ async def create_booking(
         package_id=booking.package_id,
         status=booking.status.value,
         num_travelers=booking.num_travelers,
+        male_count=booking.male_count or 1,
+        female_count=booking.female_count or 0,
         travel_date=booking.travel_date,
         notes=booking.notes,
         package_title=pkg.title,
@@ -117,6 +148,8 @@ async def get_my_bookings(
             package_id=b.package_id,
             status=b.status.value,
             num_travelers=b.num_travelers,
+            male_count=b.male_count or 1,
+            female_count=b.female_count or 0,
             travel_date=b.travel_date,
             notes=b.notes,
             package_title=pkg.title if pkg else None,
@@ -475,6 +508,81 @@ async def get_traveler_payments(
             "created_at": str(t.created_at)
         })
     return output
+
+
+# ─── Agency: Get Bookings categorized by Package ──────────────────────────────
+@router.get("/agency/my-bookings")
+async def get_agency_bookings(
+    current_user=Depends(get_current_approved_agency),
+    db: AsyncSession = Depends(get_db),
+):
+    pkg_res = await db.execute(select(Package).where(Package.agency_id == current_user.id))
+    packages = pkg_res.scalars().all()
+    if not packages:
+        return []
+
+    pkg_dict = {p.id: p for p in packages}
+    pkg_ids = list(pkg_dict.keys())
+
+    bookings_res = await db.execute(
+        select(Booking, User.name, User.email)
+        .join(User, Booking.traveler_id == User.id)
+        .where(Booking.package_id.in_(pkg_ids))
+        .order_by(Booking.created_at.desc())
+    )
+    bookings_data = bookings_res.all()
+
+    if not bookings_data:
+        return []
+
+    # Fetch transaction for booking payments
+    txn_res = await db.execute(
+        select(PaymentTransaction)
+        .where(PaymentTransaction.booking_id.in_([b.id for b, _, _ in bookings_data]))
+    )
+    txns = txn_res.scalars().all()
+    txn_dict = {t.booking_id: t for t in txns}
+
+    # Group by package
+    grouped = {}
+    for p_id, pkg in pkg_dict.items():
+        grouped[p_id] = {
+            "package_id": p_id,
+            "package_title": pkg.title,
+            "package_price": pkg.price,
+            "deposit_percentage": pkg.deposit_percentage or 50,
+            "bookings": []
+        }
+
+    for b, user_name, user_email in bookings_data:
+        txn = txn_dict.get(b.id)
+        pkg = pkg_dict.get(b.package_id)
+        
+        # Financial breakdown:
+        original_total = pkg.price * b.num_travelers
+        traveler_total = original_total * 1.10
+        
+        deposit_pct = pkg.deposit_percentage or 50
+        amount_paid = traveler_total * (deposit_pct / 100.0) if b.status == BookingStatus.confirmed else 0.0
+        remaining_due = traveler_total - amount_paid
+
+        grouped[b.package_id]["bookings"].append({
+            "booking_id": b.id,
+            "traveler_name": user_name,
+            "traveler_email": user_email,
+            "num_travelers": b.num_travelers,
+            "male_count": b.male_count or 1,
+            "female_count": b.female_count or 0,
+            "travel_date": b.travel_date,
+            "status": b.status.value,
+            "advance_paid": amount_paid,
+            "remaining_due": remaining_due,
+            "total_price": traveler_total,
+            "created_at": str(b.created_at),
+        })
+
+    # Return packages that actually have bookings
+    return [v for v in grouped.values() if len(v["bookings"]) > 0]
 
 
 # ─── Agency: Get Bank Details ───────────────────────────────────────────────

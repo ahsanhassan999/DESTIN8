@@ -46,6 +46,19 @@ async def on_startup():
     from app.models import User, AgencyProfile, Package, Wishlist, Review, Booking, PaymentTransaction, SavedCard, Conversation, Message, ChatTag, ConversationTagLink, SupportTicket, TicketTag, TicketTagLink
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Auto-migration checks for newly added columns
+        for sql in [
+            "ALTER TABLE packages ADD COLUMN categories TEXT DEFAULT '[\"mountains\"]'",
+            "ALTER TABLE packages ADD COLUMN gallery_images TEXT DEFAULT '[]'",
+            "ALTER TABLE bookings ADD COLUMN male_count INTEGER DEFAULT 1",
+            "ALTER TABLE bookings ADD COLUMN female_count INTEGER DEFAULT 0",
+        ]:
+            try:
+                await conn.execute(text(sql))
+            except Exception:
+                pass
+
         # Seed default tags if they don't exist
         try:
             res = await conn.execute(text("SELECT COUNT(*) FROM chat_tags"))

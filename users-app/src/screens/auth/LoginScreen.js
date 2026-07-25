@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [showDemo, setShowDemo] = useState(false);
   const [error, setError]       = useState('');
   const { login, loading }      = useAuth();
@@ -36,7 +36,7 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setError('');
     if (!email || !password) { setError('Please fill in all fields.'); return; }
-    const res = await login(email.trim(), password);
+    const res = await login(email.trim(), password, remember);
     if (!res.success) {
       if (res.suspended)   navigation.replace('Suspended');
       else if (res.pending) setError('Your agency account is pending approval.');

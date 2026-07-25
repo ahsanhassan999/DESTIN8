@@ -27,6 +27,8 @@ import ChatDetailScreen        from '../screens/traveler/ChatDetailScreen';
 import MyTripsScreen           from '../screens/traveler/MyTripsScreen';
 import PaymentReceiptsScreen   from '../screens/traveler/PaymentReceiptsScreen';
 import PackageComparisonScreen from '../screens/traveler/PackageComparisonScreen';
+import SearchDiscoveryScreen   from '../screens/traveler/SearchDiscoveryScreen';
+import SearchResultsScreen     from '../screens/traveler/SearchResultsScreen';
 
 // ── Agency
 import AgencyDashboardScreen from '../screens/agency/AgencyDashboardScreen';
@@ -35,6 +37,9 @@ import MyPackagesScreen      from '../screens/agency/MyPackagesScreen';
 import AgencyProfileScreen   from '../screens/agency/AgencyProfileScreen';
 import BankDetailsScreen     from '../screens/agency/BankDetailsScreen';
 import AgencyWalletScreen    from '../screens/agency/AgencyWalletScreen';
+import AgencyReviewsScreen   from '../screens/agency/AgencyReviewsScreen';
+import AgencyBookingsScreen  from '../screens/agency/AgencyBookingsScreen';
+import MyAccountScreen       from '../screens/common/MyAccountScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -227,11 +232,15 @@ function TravelerStack() {
   return (
     <Stack.Navigator screenOptions={NO_HEADER} initialRouteName="TravelerTabs">
       <Stack.Screen name="TravelerTabs"   component={TravelerTabs} />
+      <Stack.Screen name="SearchDiscovery" component={SearchDiscoveryScreen} />
+      <Stack.Screen name="SearchResults"   component={SearchResultsScreen} />
       <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
       <Stack.Screen name="ChatDetail"    component={ChatDetailScreen} />
       <Stack.Screen name="Profile"       component={TravelerProfileScreen} />
+      <Stack.Screen name="Bookings"      component={MyTripsScreen} />
       <Stack.Screen name="PaymentReceipts" component={PaymentReceiptsScreen} />
       <Stack.Screen name="PackageComparison" component={PackageComparisonScreen} />
+      <Stack.Screen name="MyAccount"     component={MyAccountScreen} />
     </Stack.Navigator>
   );
 }
@@ -240,12 +249,17 @@ function AgencyStack() {
   return (
     <Stack.Navigator screenOptions={NO_HEADER} initialRouteName="AgencyTabs">
       <Stack.Screen name="AgencyTabs" component={AgencyTabs} />
+      <Stack.Screen name="SearchDiscovery" component={SearchDiscoveryScreen} />
+      <Stack.Screen name="SearchResults"   component={SearchResultsScreen} />
       <Stack.Screen name="PostPackageForm" component={PostPackageScreen} />
       <Stack.Screen name="PackageDetail" component={PackageDetailScreen} />
       <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
       <Stack.Screen name="Profile"    component={AgencyProfileScreen} />
       <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
       <Stack.Screen name="AgencyWallet" component={AgencyWalletScreen} />
+      <Stack.Screen name="AgencyReviews" component={AgencyReviewsScreen} />
+      <Stack.Screen name="MyAccount"     component={MyAccountScreen} />
+      <Stack.Screen name="Bookings"      component={AgencyBookingsScreen} />
     </Stack.Navigator>
   );
 }

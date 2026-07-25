@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Image, Dimensions, ActivityIndicator, Alert
+  Image, Dimensions, ActivityIndicator, Alert, Modal
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,13 +14,16 @@ const COLUMN_WIDTH = 180; // fixed width for each package column
 
 export default function PackageComparisonScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
-  const { packageIds = [] } = route.params || {};
+  const initialPackageIds = route.params?.packageIds || [];
 
   const [loading, setLoading] = useState(true);
+  const [activePackageIds, setActivePackageIds] = useState(initialPackageIds);
   const [packages, setPackages] = useState([]);
+  const [allAvailablePackages, setAllAvailablePackages] = useState([]);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   useEffect(() => {
-    if (packageIds.length === 0) {
+    if (activePackageIds.length === 0) {
       setLoading(false);
       return;
     }
@@ -28,12 +31,10 @@ export default function PackageComparisonScreen({ route, navigation }) {
     const fetchPackages = async () => {
       try {
         setLoading(true);
-        // Fetch details of all selected packages in parallel
         const results = await Promise.all(
-          packageIds.map(async (id) => {
+          activePackageIds.map(async (id) => {
             try {
               const data = await api.getPackage(id);
-              // Normalize data
               return {
                 id: data.id,
                 title: data.title,
@@ -69,7 +70,32 @@ export default function PackageComparisonScreen({ route, navigation }) {
     };
 
     fetchPackages();
-  }, [packageIds]);
+  }, [activePackageIds]);
+
+  const openPackagePicker = async () => {
+    try {
+      const data = await api.getPackages();
+      setAllAvailablePackages(data || []);
+      setPickerVisible(true);
+    } catch (err) {
+      Alert.alert('Error', 'Could not load available packages.');
+    }
+  };
+
+  const addPackageToCompare = (id) => {
+    if (!activePackageIds.includes(id)) {
+      setActivePackageIds([...activePackageIds, id]);
+    }
+    setPickerVisible(false);
+  };
+
+  const removePackageFromCompare = (id) => {
+    if (activePackageIds.length > 1) {
+      setActivePackageIds(activePackageIds.filter(pId => pId !== id));
+    } else {
+      Alert.alert('Notice', 'At least one package must remain in comparison.');
+    }
+  };
 
   if (loading) {
     return (
@@ -112,6 +138,20 @@ export default function PackageComparisonScreen({ route, navigation }) {
       <View style={styles.bgOrb1} pointerEvents="none" />
       <View style={styles.bgOrb2} pointerEvents="none" />
 
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 12, marginBottom: 4 }}>
+        <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 16, color: '#2c2f30' }}>
+          Comparing {packages.length} Package{packages.length > 1 ? 's' : ''}
+        </Text>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#52396f', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, gap: 4 }}
+          onPress={openPackagePicker}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="add" size={18} color="#ffffff" />
+          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 12, color: '#ffffff' }}>Add Package</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={true}>
           <View style={styles.table}>
@@ -120,6 +160,14 @@ export default function PackageComparisonScreen({ route, navigation }) {
               <View style={[styles.cell, styles.labelColumn, styles.headerLabelCell]} />
               {packages.map((pkg) => (
                 <View key={pkg.id} style={[styles.cell, styles.columnCell]}>
+                  {packages.length > 1 && (
+                    <TouchableOpacity
+                      style={{ position: 'absolute', top: 6, right: 6, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 2 }}
+                      onPress={() => removePackageFromCompare(pkg.id)}
+                    >
+                      <MaterialIcons name="close" size={14} color="#ffffff" />
+                    </TouchableOpacity>
+                  )}
                   <Image
                     source={{ uri: pkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15' }}
                     style={styles.pkgImg}
@@ -240,6 +288,54 @@ export default function PackageComparisonScreen({ route, navigation }) {
           </View>
         </ScrollView>
       </ScrollView>
+
+      {/* Package Picker Modal */}
+      <Modal
+        visible={pickerVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '75%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 18, color: '#2c2f30' }}>Add Package to Compare</Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#2c2f30" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {allAvailablePackages.filter(p => !activePackageIds.includes(p.id)).length === 0 ? (
+                <Text style={{ fontFamily: 'Manrope_500Medium', fontSize: 14, color: '#858c8e', textAlign: 'center', paddingVertical: 20 }}>
+                  No additional packages available to add.
+                </Text>
+              ) : (
+                allAvailablePackages.filter(p => !activePackageIds.includes(p.id)).map((p) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#f0eef5', gap: 12 }}
+                    onPress={() => addPackageToCompare(p.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={{ uri: p.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjWYJQBQnyHAXiKaPafNLz9RoJJ4ERL0A8Dahmc1zp00YyOiddKSt2qlHyo_Gilk6VCiaG_wu1VdHGgJBvzQVHPaPeE51A14ROsLSPhBQdmdtwW3C26Bz5dEwDfDfKZMQ80X5R3wnkRdmV4EsS9Bn6oRlYnN2A2xHfpIdJpzXnGP4WyhCij7OF7EIvQbO3d7nSpkGgOUCSCM-AcUFVI2GI96wJ9shX8ktKSOY0c1iwSsdP2JoWfphsh2MNKVwy5ErkqZGKYsGeTj15' }}
+                      style={{ width: 50, height: 50, borderRadius: 8 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 14, color: '#2c2f30' }} numberOfLines={1}>{p.title}</Text>
+                      <Text style={{ fontFamily: 'Manrope_500Medium', fontSize: 12, color: '#858c8e' }}>{p.destination} • {p.duration_days} Days</Text>
+                    </View>
+                    <Text style={{ fontFamily: 'Epilogue_700Bold', fontSize: 14, color: '#52396f' }}>
+                      {p.price < 10000 ? `$${p.price}` : `PKR ${p.price.toLocaleString()}`}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

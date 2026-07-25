@@ -64,6 +64,30 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least 1 uppercase letter.")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least 1 number.")
+        return v
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, v, info):
+        if "new_password" in info.data and v != info.data["new_password"]:
+            raise ValueError("Passwords do not match.")
+        return v
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -181,12 +205,14 @@ class PackageCreateRequest(BaseModel):
     description: str
     included_services: Optional[str] = "[]"  # JSON string
     cover_image: Optional[str] = None
+    gallery_images: Optional[str] = "[]"  # JSON string list
     departure_date: Optional[str] = None
     is_active: Optional[bool] = True
     itinerary: Optional[str] = "[]"  # JSON string
     deposit_percentage: Optional[int] = 50
     refund_deadline_days: Optional[int] = 7
     best_season: Optional[str] = "Year-round"
+    categories: Optional[str] = '["mountains"]'  # JSON string list
 
 
 class PackageUpdateRequest(BaseModel):
@@ -197,12 +223,14 @@ class PackageUpdateRequest(BaseModel):
     description: Optional[str] = None
     included_services: Optional[str] = None
     cover_image: Optional[str] = None
+    gallery_images: Optional[str] = None
     departure_date: Optional[str] = None
     is_active: Optional[bool] = None
     itinerary: Optional[str] = None
     deposit_percentage: Optional[int] = None
     refund_deadline_days: Optional[int] = None
     best_season: Optional[str] = None
+    categories: Optional[str] = None
 
 
 class PackageResponse(BaseModel):
@@ -216,6 +244,7 @@ class PackageResponse(BaseModel):
     description: str
     included_services: str
     cover_image: Optional[str] = None
+    gallery_images: Optional[str] = "[]"
     departure_date: Optional[str] = None
     is_active: bool
     itinerary: str = "[]"
@@ -224,12 +253,22 @@ class PackageResponse(BaseModel):
     deposit_percentage: int = 50
     refund_deadline_days: int = 7
     best_season: Optional[str] = "Year-round"
+    categories: Optional[str] = '["mountains"]'
     created_at: str
     average_rating: Optional[float] = None
     review_count: int = 0
 
     class Config:
         from_attributes = True
+
+
+class BookingCreateRequest(BaseModel):
+    package_id: str
+    num_travelers: int = 1
+    male_count: Optional[int] = 1
+    female_count: Optional[int] = 0
+    travel_date: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class SavedCardResponse(BaseModel):

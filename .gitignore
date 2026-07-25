@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+/backend/venv/
+/backend/uploads/
+.expo/
+dist/
+build/
+*.apk
+*.aab
+
+# Python Cache & Databases
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.db
+backend/destin8.db
+backend/uploads/
+backend/scratch/
+scratch/
+commands.md
+
+# Environments
+.env
+.env.local
+.env.*.local
+
+# System/IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

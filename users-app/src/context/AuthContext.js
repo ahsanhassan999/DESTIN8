@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const login = async (email, password) => {
+  const login = async (email, password, remember = true) => {
     setLoading(true);
     try {
       const data = await api.login(email.trim(), password);
@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
       };
       
       const initials = getInitials(data.name);
-      const sessionUser = { ...data, initials };
+      const sessionUser = { ...data, initials, rememberMe: remember };
       
       await AsyncStorage.setItem('destin8_user', JSON.stringify(sessionUser));
       setUser(sessionUser);
@@ -120,6 +120,13 @@ export function AuthProvider({ children }) {
       const saved = await AsyncStorage.getItem('destin8_user');
       if (saved) {
         const parsed = JSON.parse(saved);
+        
+        // If "Keep me signed in" was not checked, log out on restart
+        if (parsed.rememberMe === false) {
+          await logout();
+          return;
+        }
+
         setUser(parsed);
         
         // Fetch fresh profile status to sync with admin changes

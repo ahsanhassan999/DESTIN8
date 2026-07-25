@@ -1,15 +1,54 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function AgencyProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+
+  // Password Modal State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+
+  const handlePasswordSubmit = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all password fields.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError('');
+    try {
+      await api.changePassword(oldPassword, newPassword, confirmPassword);
+      setPasswordLoading(false);
+      setShowPasswordModal(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Success', 'Your password has been changed successfully.');
+    } catch (err) {
+      setPasswordLoading(false);
+      setPasswordError(err.message || 'Failed to change password.');
+    }
+  };
 
   const getInitials = (name) => {
     if (!name) return 'OT';
@@ -25,11 +64,14 @@ export default function AgencyProfileScreen({ navigation }) {
   const initials = getInitials(name);
 
   const MENU = [
+    { icon: 'manage-accounts', label: 'My Account Details', onPress: () => navigation.navigate('MyAccount') },
+    { icon: 'event-note', label: 'Check Package Bookings', onPress: () => navigation.navigate('Bookings') },
     { icon: 'account-balance', label: 'Bank Account Setup', onPress: () => navigation.navigate('BankDetails') },
     { icon: 'account-balance-wallet', label: 'Wallet & Payouts', onPress: () => navigation.navigate('AgencyWallet') },
     { icon: 'card-travel', label: 'Manage Packages', onPress: () => navigation.navigate('Post Package') },
     { icon: 'chat', label: 'Messages & Inquiries', onPress: () => navigation.navigate('Chat') },
-    { icon: 'star', label: 'Customer Reviews', onPress: () => {} },
+    { icon: 'star', label: 'Customer Reviews', onPress: () => navigation.navigate('AgencyReviews') },
+    { icon: 'lock', label: 'Security & Change Password', onPress: () => setShowPasswordModal(true) },
   ];
 
   return (
@@ -114,6 +156,64 @@ export default function AgencyProfileScreen({ navigation }) {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* Password Change Modal */}
+      <Modal visible={showPasswordModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                <MaterialIcons name="close" size={24} color="#2C2F30" />
+              </TouchableOpacity>
+            </View>
+
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+            <Text style={styles.inputLabel}>Current Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              secureTextEntry
+              placeholder="Enter current password"
+              placeholderTextColor="#A0A0A0"
+              value={oldPassword}
+              onChangeText={setOldPassword}
+            />
+
+            <Text style={styles.inputLabel}>New Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              secureTextEntry
+              placeholder="Min 8 chars, 1 uppercase & 1 number"
+              placeholderTextColor="#A0A0A0"
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+
+            <Text style={styles.inputLabel}>Confirm New Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              secureTextEntry
+              placeholder="Re-enter new password"
+              placeholderTextColor="#A0A0A0"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+
+            <TouchableOpacity
+              style={styles.submitBtn}
+              onPress={handlePasswordSubmit}
+              disabled={passwordLoading}
+            >
+              {passwordLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitBtnTxt}>Update Password</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -261,5 +361,74 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 16,
     color: '#ba1a1a',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontFamily: 'Epilogue_700Bold',
+    fontSize: 20,
+    color: '#2C2F30',
+  },
+  inputLabel: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    color: '#595C5D',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    backgroundColor: '#F5F6F7',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+    color: '#2C2F30',
+    borderWidth: 1,
+    borderColor: 'rgba(44, 47, 48, 0.08)',
+  },
+  submitBtn: {
+    backgroundColor: '#967BB6',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  submitBtnTxt: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 15,
+    color: '#ffffff',
+  },
+  errorText: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 13,
+    color: '#B41340',
+    backgroundColor: '#FFE4EC',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
   },
 });

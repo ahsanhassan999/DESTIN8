@@ -94,6 +94,7 @@ class Package(Base):
     description: Mapped[str] = mapped_column(Text)
     included_services: Mapped[str] = mapped_column(Text, default="[]")  # JSON string
     cover_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    gallery_images: Mapped[str | None] = mapped_column(Text, nullable=True, default="[]")  # JSON string list
     departure_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_takedown: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -102,6 +103,7 @@ class Package(Base):
     deposit_percentage: Mapped[int] = mapped_column(Integer, default=50)
     refund_deadline_days: Mapped[int] = mapped_column(Integer, default=7)
     best_season: Mapped[str | None] = mapped_column(String(50), nullable=True, default="Year-round")
+    categories: Mapped[str] = mapped_column(Text, default='["mountains"]')  # JSON string list
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -155,6 +157,8 @@ class Booking(Base):
     package_id: Mapped[str] = mapped_column(String(36), ForeignKey("packages.id"))
     status: Mapped[BookingStatus] = mapped_column(SAEnum(BookingStatus), default=BookingStatus.pending)
     num_travelers: Mapped[int] = mapped_column(Integer, default=1)
+    male_count: Mapped[int] = mapped_column(Integer, default=1)
+    female_count: Mapped[int] = mapped_column(Integer, default=0)
     travel_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

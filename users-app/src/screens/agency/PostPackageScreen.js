@@ -78,7 +78,19 @@ export default function PostPackageScreen({ navigation, route }) {
 
   // Visuals & Themes
   const [imageUrls, setImageUrls] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState(['mountains']);
   const [selectedTags, setSelectedTags] = useState(['Adventure']);
+
+  const toggleCategory = (id) => {
+    const list = Array.isArray(selectedCategories) ? selectedCategories : ['mountains'];
+    if (list.includes(id)) {
+      if (list.length > 1) {
+        setSelectedCategories(list.filter(c => c !== id));
+      }
+    } else {
+      setSelectedCategories([...list, id]);
+    }
+  };
   const [availableTags, setAvailableTags] = useState(['Adventure', 'Luxury', 'Wellness', 'Cultural', 'Couples', 'Foodie']);
   const [showAddTag, setShowAddTag] = useState(false);
   const [newTagText, setNewTagText] = useState('');
@@ -175,7 +187,15 @@ export default function PostPackageScreen({ navigation, route }) {
           : (editingPackage.itinerary || []);
       } catch (_) {}
       if (parsedItinerary && parsedItinerary.length > 0) {
-        setDays(parsedItinerary);
+        const normalizedDays = parsedItinerary.map((d, index) => ({
+          id: d.id || d.day || (index + 1),
+          title: d.title || d.activity || '',
+          desc: d.desc || d.description || '',
+          accommodation: d.accommodation || '',
+          location: d.location || '',
+          transport: Array.isArray(d.transport) ? d.transport : ['Private 4x4 Land Cruiser'],
+        }));
+        setDays(normalizedDays);
       }
       
       if (editingPackage.inclusions) setInclusions(editingPackage.inclusions);
@@ -188,7 +208,22 @@ export default function PostPackageScreen({ navigation, route }) {
       if (editingPackage.max_group) setMaxGroup(String(editingPackage.max_group));
       if (editingPackage.start_point) setStartPoint(editingPackage.start_point);
       if (editingPackage.meal_plan) setMealPlan(editingPackage.meal_plan);
-      if (editingPackage.best_season) setBestSeason(editingPackage.best_season);
+      if (editingPackage.categories) {
+        try {
+          const parsedCats = typeof editingPackage.categories === 'string'
+            ? JSON.parse(editingPackage.categories || '[]')
+            : editingPackage.categories;
+          if (Array.isArray(parsedCats) && parsedCats.length > 0) {
+            setSelectedCategories(parsedCats);
+          } else {
+            setSelectedCategories(['mountains']);
+          }
+        } catch (_) {
+          setSelectedCategories(['mountains']);
+        }
+      } else {
+        setSelectedCategories(['mountains']);
+      }
       if (editingPackage.languages) {
         try {
           const parsedLangs = typeof editingPackage.languages === 'string'
@@ -237,21 +272,34 @@ export default function PostPackageScreen({ navigation, route }) {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to upload images!');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Sorry, we need camera roll permissions to upload images!');
+        return;
+      }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 1,
-    });
+      const mediaTypesSetting = ImagePicker.MediaType ? ImagePicker.MediaType.Images : ['images'];
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const selectedUris = result.assets.map(asset => asset.uri);
-      setImageUrls((prev) => [...prev, ...selectedUris]);
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: mediaTypesSetting,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        let selectedUris = [];
+        if (result.assets && result.assets.length > 0) {
+          selectedUris = result.assets.map(asset => asset.uri).filter(Boolean);
+        } else if (result.uri) {
+          selectedUris = [result.uri];
+        }
+        if (selectedUris.length > 0) {
+          setImageUrls((prev) => [...prev, ...selectedUris]);
+        }
+      }
+    } catch (err) {
+      console.log('Error picking image:', err);
     }
   };
 
@@ -554,17 +602,24 @@ export default function PostPackageScreen({ navigation, route }) {
   };
 
   const uploadLocalImages = async (urls) => {
+    if (!Array.isArray(urls)) return [];
     const uploadedUrls = [];
-    for (const url of urls) {
-      if (url && (url.startsWith('file:/') || url.startsWith('/') || !url.startsWith('http'))) {
+    for (const urlItem of urls) {
+      if (!urlItem) continue;
+      const url = typeof urlItem === 'string' ? urlItem : (urlItem.uri || urlItem.url || '');
+      if (url && (url.startsWith('file:') || url.startsWith('content:') || url.startsWith('/') || !url.startsWith('http'))) {
         try {
           const res = await api.uploadImage(url);
-          uploadedUrls.push(res.url);
+          if (res && res.url) {
+            uploadedUrls.push(res.url);
+          } else {
+            uploadedUrls.push(url);
+          }
         } catch (err) {
-          console.log('Error uploading image:', err);
-          throw new Error(`Failed to upload package image: ${err.message}`);
+          console.log('Error uploading image, using fallback:', err);
+          uploadedUrls.push(url);
         }
-      } else {
+      } else if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
         uploadedUrls.push(url);
       }
     }
@@ -614,6 +669,7 @@ export default function PostPackageScreen({ navigation, route }) {
           deposit_percentage: depositPercentage,
           refund_deadline_days: refundDeadlineDays,
           best_season: bestSeason,
+          categories: selectedCategories,
         });
       } else {
         await api.createPackage({
@@ -630,6 +686,7 @@ export default function PostPackageScreen({ navigation, route }) {
           deposit_percentage: depositPercentage,
           refund_deadline_days: refundDeadlineDays,
           best_season: bestSeason,
+          categories: selectedCategories,
         });
       }
 
@@ -893,12 +950,52 @@ export default function PostPackageScreen({ navigation, route }) {
                 )}
               </View>
 
+              {/* Trip Types / Categories (Multi-Select) */}
+              <View style={styles.field}>
+                <Text style={styles.label}>Trip Types / Categories (Select Multiple)</Text>
+                <View style={styles.btnRow}>
+                  {[
+                    { id: 'mountains', label: 'Mountains 🏔️', icon: 'landscape' },
+                    { id: 'beaches', label: 'Beaches 🏖️', icon: 'beach-access' },
+                    { id: 'cultural', label: 'Cultural 🏛️', icon: 'museum' },
+                    { id: 'solo', label: 'Solo Trips 👤', icon: 'person' },
+                    { id: 'family', label: 'Family 👨‍👩‍👧‍👦', icon: 'family-restroom' },
+                  ].map((cat) => {
+                    const isSelected = Array.isArray(selectedCategories) && selectedCategories.includes(cat.id);
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                          styles.chipIconBtn,
+                          isSelected ? styles.chipBtnActive : styles.chipBtnInactiveOutline,
+                        ]}
+                        onPress={() => toggleCategory(cat.id)}
+                      >
+                        <MaterialIcons
+                          name={cat.icon}
+                          size={18}
+                          color={isSelected ? '#ffffff' : C.onSurfVar}
+                        />
+                        <Text
+                          style={[
+                            styles.chipBtnTxt,
+                            isSelected ? styles.chipBtnTxtActive : styles.chipBtnTxtInactive,
+                          ]}
+                        >
+                          {cat.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
               {/* Included Services */}
               <View style={styles.field}>
                 <Text style={styles.label}>Included Services</Text>
                 <View style={styles.btnRow}>
                   {availableServices.map((srv) => {
-                    const isSelected = services.includes(srv.name);
+                    const isSelected = Array.isArray(services) && services.includes(srv.name);
                     return (
                       <TouchableOpacity
                         key={srv.name}
@@ -1037,7 +1134,7 @@ export default function PostPackageScreen({ navigation, route }) {
                 <Text style={styles.label}>Category/Theme Tags</Text>
                 <View style={styles.btnRow}>
                   {availableTags.map((tag) => {
-                    const isSelected = selectedTags.includes(tag);
+                    const isSelected = Array.isArray(selectedTags) && selectedTags.includes(tag);
                     return (
                       <TouchableOpacity
                         key={tag}
@@ -1130,7 +1227,7 @@ export default function PostPackageScreen({ navigation, route }) {
 
             <View style={styles.formGroup}>
               {days.map((day, idx) => (
-                <View key={day.id} style={styles.dayBox}>
+                <View key={day.id || `day-${idx}`} style={styles.dayBox}>
                   <View style={styles.dayHeader}>
                     <Text style={styles.dayNumTitle}>Day {idx + 1}</Text>
                     {days.length > 1 && (
@@ -1220,7 +1317,7 @@ export default function PostPackageScreen({ navigation, route }) {
                       <Text style={styles.label}>Daily Transport Mode</Text>
                       <View style={styles.btnRow}>
                         {availableTransports.map((trsp) => {
-                          const isSelected = day.transport.includes(trsp);
+                          const isSelected = Array.isArray(day?.transport) && day.transport.includes(trsp);
                           return (
                             <TouchableOpacity
                               key={trsp}
@@ -1558,7 +1655,7 @@ export default function PostPackageScreen({ navigation, route }) {
                 <Text style={styles.label}>Languages Spoken by Guide</Text>
                 <View style={styles.btnRow}>
                   {availableLanguages.map((lang) => {
-                    const isSelected = languages.includes(lang);
+                    const isSelected = Array.isArray(languages) && languages.includes(lang);
                     return (
                       <TouchableOpacity
                         key={lang}

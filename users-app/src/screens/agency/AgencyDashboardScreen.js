@@ -84,11 +84,11 @@ export default function AgencyDashboardScreen({ navigation }) {
               <Text style={[styles.actionLabel, { color: '#fff' }]}>Post New{"\n"}Package</Text>
             </TouchableOpacity>
 
-            {/* Action: Manage My Trips */}
+            {/* Action: Package Bookings */}
             <TouchableOpacity
               style={[styles.actionBtn, styles.bgLowest, styles.borderVariant]}
               activeOpacity={0.88}
-              onPress={() => navigation.navigate('Post Package')}
+              onPress={() => navigation.navigate('Bookings')}
             >
               <ImageBackground
                 source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBIAtke1a899GDAMe9ipxHo_K3-LQfcz2UnWZce3WPM4q9uveqgFax66s99CY1ohSzpNMRBwNDz4YPuxGmT1FkzKgov2UlLoAOaYBYOVDSPh6U-w3CJOR-lqPim_bLoimOByhm2xZt24SFPCWRsjXA3whIqo1Mx8GcOV0q2hXUutKF2jDOCVkvQ64rvrJVoGg3ln6bH1ZE_jYHmjvMSJ8acKXKzYHPWlW1OqepK8J9M3ZGCbmsVbLCuClT8bw7arroD5wy_X3RWyKyj' }}
@@ -96,9 +96,9 @@ export default function AgencyDashboardScreen({ navigation }) {
                 imageStyle={{ opacity: 0.1, borderTopRightRadius: 16, borderBottomRightRadius: 16 }}
               />
               <View style={styles.iconCircleGray}>
-                <MaterialIcons name="luggage" size={22} color="#595C5D" />
+                <MaterialIcons name="event-note" size={22} color="#595C5D" />
               </View>
-              <Text style={[styles.actionLabel, { color: '#2C2F30' }]}>Manage{"\n"}Packages</Text>
+              <Text style={[styles.actionLabel, { color: '#2C2F30' }]}>Package{"\n"}Bookings</Text>
             </TouchableOpacity>
 
             {/* Action: Message Inbox */}
@@ -118,6 +118,7 @@ export default function AgencyDashboardScreen({ navigation }) {
             <TouchableOpacity
               style={[styles.actionBtn, styles.bgLowest, styles.borderVariant]}
               activeOpacity={0.88}
+              onPress={() => navigation.navigate('AgencyReviews')}
             >
               <ImageBackground
                 source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBBkYPAcFWPqbuifBi1pBiI2J-7h38D8_AeXjCzxhY5ROae1Rf8_8yZVfms5U47U43xtxJn8Ie5J6HvHWakpCbCoBei6-JHWb0Kn9psw7fDS1SaPiVQ5sWvkAdmelnz8UtLvH0LqcJudUq0couR4zHPmYZjKOZrAAHr1a9TbTVozYZcsfi6WzBBHjsQyvTX-1uQVtzvKS3whDeHspS05ppuWw-eV3t1RbLk8sxFkdpcnI07b_wg6phqshWxjAi2JJFTRW-F12fLAJ3b' }}

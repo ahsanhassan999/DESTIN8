@@ -26,6 +26,15 @@ router = APIRouter(prefix="/api/packages", tags=["Packages"])
 
 def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_count: int, markup: bool = False) -> dict:
     price = pkg.price * 1.10 if markup else pkg.price
+    import json
+    gallery_raw = getattr(pkg, "gallery_images", "[]") or "[]"
+    try:
+        gallery_list = json.loads(gallery_raw) if isinstance(gallery_raw, str) else (gallery_raw or [])
+    except Exception:
+        gallery_list = []
+    if not gallery_list and pkg.cover_image:
+        gallery_list = [pkg.cover_image]
+
     return {
         "id": pkg.id,
         "agency_id": pkg.agency_id,
@@ -37,6 +46,8 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
         "description": pkg.description,
         "included_services": pkg.included_services,
         "cover_image": pkg.cover_image,
+        "gallery_images": gallery_raw,
+        "imageUrls": gallery_list,
         "departure_date": pkg.departure_date,
         "is_active": pkg.is_active,
         "itinerary": pkg.itinerary,
@@ -45,6 +56,7 @@ def _package_to_dict(pkg: Package, agency_name: str, avg_rating: float, review_c
         "deposit_percentage": pkg.deposit_percentage,
         "refund_deadline_days": pkg.refund_deadline_days,
         "best_season": pkg.best_season,
+        "categories": pkg.categories or '["mountains"]',
         "created_at": str(pkg.created_at),
         "average_rating": avg_rating,
         "review_count": review_count,
@@ -112,7 +124,9 @@ async def _enrich_package(pkg: Package, db: AsyncSession, markup: bool = False, 
 
 @router.get("/")
 async def browse_packages(
+    search: Optional[str] = None,
     destination: Optional[str] = None,
+    category: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     db: AsyncSession = Depends(get_db),
@@ -123,8 +137,28 @@ async def browse_packages(
     # Only show packages from approved agencies
     query = query.join(User, Package.agency_id == User.id).where(User.status == UserStatus.approved)
 
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            Package.title.ilike(pattern) |
+            Package.destination.ilike(pattern) |
+            Package.description.ilike(pattern) |
+            Package.best_season.ilike(pattern) |
+            Package.included_services.ilike(pattern)
+        )
+
     if destination:
         query = query.where(Package.destination.ilike(f"%{destination}%"))
+
+    if category and category.lower() != 'all':
+        cat_pattern = f"%{category}%"
+        query = query.where(
+            Package.title.ilike(cat_pattern) |
+            Package.destination.ilike(cat_pattern) |
+            Package.description.ilike(cat_pattern) |
+            Package.included_services.ilike(cat_pattern)
+        )
+
     if min_price is not None:
         query = query.where(Package.price >= min_price)
     if max_price is not None:
@@ -134,6 +168,57 @@ async def browse_packages(
     packages = result.scalars().all()
 
     return [await _enrich_package(p, db, markup=True) for p in packages]
+
+
+# ─── Agency Package Management ────────────────────────────────────────────────
+
+@router.get("/agency/my-packages")
+async def get_my_packages(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_approved_agency),
+):
+    result = await db.execute(
+        select(Package).where(Package.agency_id == current_user.id)
+        .order_by(Package.created_at.desc())
+    )
+    packages = result.scalars().all()
+    return [await _enrich_package(p, db, for_agency=True) for p in packages]
+
+
+@router.get("/agency/my-reviews")
+async def get_my_agency_reviews(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_approved_agency),
+):
+    pkg_res = await db.execute(select(Package.id, Package.title).where(Package.agency_id == current_user.id))
+    packages = pkg_res.all()
+    if not packages:
+        return []
+
+    pkg_dict = {p.id: p.title for p in packages}
+    pkg_ids = list(pkg_dict.keys())
+
+    reviews_res = await db.execute(
+        select(Review, User.name)
+        .join(User, Review.user_id == User.id)
+        .where(Review.package_id.in_(pkg_ids))
+        .order_by(Review.created_at.desc())
+    )
+    reviews_data = reviews_res.all()
+
+    output = []
+    for r, user_name in reviews_data:
+        output.append({
+            "id": r.id,
+            "package_id": r.package_id,
+            "package_title": pkg_dict.get(r.package_id, "Package"),
+            "user_id": r.user_id,
+            "user_name": user_name,
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": str(r.created_at),
+        })
+    return output
 
 
 @router.get("/{package_id}")
@@ -180,21 +265,6 @@ async def get_package(
     return enrich_data
 
 
-# ─── Agency Package Management ────────────────────────────────────────────────
-
-@router.get("/agency/my-packages")
-async def get_my_packages(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_approved_agency),
-):
-    result = await db.execute(
-        select(Package).where(Package.agency_id == current_user.id)
-        .order_by(Package.created_at.desc())
-    )
-    packages = result.scalars().all()
-    return [await _enrich_package(p, db, for_agency=True) for p in packages]
-
-
 @router.post("/agency/create", status_code=201)
 async def create_package(
     data: PackageCreateRequest,
@@ -210,12 +280,14 @@ async def create_package(
         description=data.description,
         included_services=data.included_services or "[]",
         cover_image=data.cover_image,
+        gallery_images=data.gallery_images or "[]",
         departure_date=data.departure_date,
         is_active=data.is_active if data.is_active is not None else True,
         itinerary=data.itinerary or "[]",
         deposit_percentage=data.deposit_percentage if data.deposit_percentage is not None else 50,
         refund_deadline_days=data.refund_deadline_days if data.refund_deadline_days is not None else 7,
         best_season=data.best_season or "Year-round",
+        categories=data.categories or '["mountains"]',
     )
     db.add(pkg)
     await db.commit()
@@ -279,7 +351,25 @@ async def update_package(
     )
 
     if is_detail_edit:
-        # Check lock status
+        # Check if package has any active traveler bookings
+        booking_check = await db.execute(
+            select(Booking).where(
+                Booking.package_id == package_id,
+                Booking.status != BookingStatus.cancelled
+            )
+        )
+        has_any_bookings = booking_check.scalars().first() is not None
+
+        if not has_any_bookings:
+            # NO TRAVELER BOOKINGS: Direct live edit with no admin review!
+            for k, v in data.dict().items():
+                if v is not None:
+                    setattr(pkg, k, v)
+            await db.commit()
+            await db.refresh(pkg)
+            return await _enrich_package(pkg, db, for_agency=True)
+
+        # HAS TRAVELER BOOKINGS: Requires Admin review / ticket workflow
         if await is_package_locked(package_id, db):
             raise HTTPException(
                 status_code=400,
@@ -591,7 +681,7 @@ async def get_agency_tickets(
 @router.post("/upload")
 async def upload_image(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_approved_agency)
+    current_user: User = Depends(get_current_user)
 ):
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY")

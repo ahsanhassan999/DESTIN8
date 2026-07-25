@@ -261,8 +261,32 @@ export default function PackageDetailScreen({ navigation, route }) {
   // Booking & Checkout States
   const [checkoutVisible, setCheckoutVisible] = useState(false);
   const [numTravelers, setNumTravelers] = useState(1);
+  const [maleCount, setMaleCount] = useState(1);
+  const [femaleCount, setFemaleCount] = useState(0);
   const [savedCards, setSavedCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState('new');
+
+  const isFamilyPackage = React.useMemo(() => {
+    if (fullPkg && fullPkg.categories) {
+      try {
+        const cats = typeof fullPkg.categories === 'string' ? JSON.parse(fullPkg.categories) : fullPkg.categories;
+        if (Array.isArray(cats) && cats.some(c => String(c).toLowerCase() === 'family')) {
+          return true;
+        }
+      } catch (_) {
+        if (String(fullPkg.categories).toLowerCase().includes('family')) return true;
+      }
+    }
+    return false;
+  }, [fullPkg]);
+
+  useEffect(() => {
+    if (checkoutVisible && isFamilyPackage) {
+      setNumTravelers(2);
+      setMaleCount(1);
+      setFemaleCount(1);
+    }
+  }, [checkoutVisible, isFamilyPackage]);
   
   // Custom Card fields
   const [cardNumber, setCardNumber] = useState('');
@@ -329,22 +353,32 @@ export default function PackageDetailScreen({ navigation, route }) {
   const handlePayment = async () => {
     setPaymentError('');
     setPaymentLoading(true);
-    let bookingId = null;
+
     try {
-      const bookingData = await api.createBooking({
+      if (isFamilyPackage) {
+        if (numTravelers < 2) {
+          throw new Error('Family trip packages require a minimum of 2 travelers.');
+        }
+        if (maleCount < 1 || femaleCount < 1) {
+          throw new Error('Family trip bookings require at least 1 male and 1 female traveler.');
+        }
+        if (maleCount + femaleCount !== numTravelers) {
+          throw new Error(`Male count (${maleCount}) + Female count (${femaleCount}) must equal total travelers (${numTravelers}).`);
+        }
+      }
+
+      // 1. Create booking first
+      const booking = await api.createBooking({
         packageId: fullPkg.id,
-        numTravelers: numTravelers,
+        numTravelers,
+        maleCount,
+        femaleCount,
         travelDate: fullPkg.departure_date || new Date().toISOString().split('T')[0],
         notes: "Deposit payment check-out",
       });
-      bookingId = bookingData.id;
-    } catch (err) {
-      setPaymentLoading(false);
-      setPaymentError(err.message || 'Failed to create booking.');
-      return;
-    }
+      const bookingId = booking.id;
 
-    try {
+      // 2. Process payment
       let payload = {
         save_card: saveCard,
       };
@@ -413,17 +447,29 @@ export default function PackageDetailScreen({ navigation, route }) {
           const numericPrice = typeof data.price === 'number' ? data.price : parseFloat(String(data.price || '0').replace(/[^0-9.]/g, '')) || 0;
           setRawPrice(numericPrice);
           setPreviewProposed(data.has_pending_approval ? true : false);
+          const parsedGallery = (() => {
+            try {
+              const g = typeof data.gallery_images === 'string' ? JSON.parse(data.gallery_images) : data.gallery_images;
+              if (Array.isArray(g) && g.length > 0) return g;
+            } catch (_) {}
+            return [];
+          })();
+
+          const resolvedImages = parsedGallery.length > 0
+            ? parsedGallery
+            : ((data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : (data.cover_image ? [data.cover_image] : (prev.imageUrls || [])));
+
           setFullPkg(prev => ({
             ...prev,
             ...data,
             duration: `${data.duration_days} Days`,
-            // Keep price as a number so it can be used for calculations
             price: numericPrice,
             img: data.cover_image || prev.img,
             agency: data.agency_name || prev.agency,
             inclusions: (() => { try { return JSON.parse(data.included_services || '[]'); } catch { return []; } })(),
             itinerary: data.itinerary || '[]',
-            imageUrls: (data.imageUrls && data.imageUrls.length > 0) ? data.imageUrls : (data.cover_image ? [data.cover_image] : (prev.imageUrls || []))
+            gallery_images: data.gallery_images || prev.gallery_images || '[]',
+            imageUrls: resolvedImages,
           }));
         }
       } catch (err) {
@@ -511,9 +557,32 @@ export default function PackageDetailScreen({ navigation, route }) {
 
   const selectedDayIndex = daysData.findIndex(d => d.id === selectedDayId);
 
-  // Dynamic fallbacks to support custom user packages and match the exact HTML designs
   const image = displayPkg.img || displayPkg.image || displayPkg.cover_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoCMJq2ZMf1oriN3XfyINSBW0uuiY_bxTzKEAlNXNqyGV55wx2BrDJV3j9XaZsKxPl4zg0HXeKElrN_tK2blgKq50DDrDUP3IA6WBLCytK7dr8VLQ28fsiUG9_uoDOsNc44rDPdSX_mXZci6e4D74-Z4-De8jvDL5zeDp1MCVVA9dml_HMtMSVCodqvWOJX3iOKYpz1QvqIc9TjfAw2e-z_5xjDNeza9Hn2VufdJKQSboLUfwlOHPTtLh6gZzRj7rXvADElHvOIkFA';
-  const images = (displayPkg.imageUrls && displayPkg.imageUrls.length > 0) ? displayPkg.imageUrls : [image];
+  
+  const images = React.useMemo(() => {
+    let list = [];
+    if (displayPkg) {
+      if (displayPkg.gallery_images) {
+        try {
+          const parsed = typeof displayPkg.gallery_images === 'string' ? JSON.parse(displayPkg.gallery_images) : displayPkg.gallery_images;
+          if (Array.isArray(parsed) && parsed.length > 0) list = [...parsed];
+        } catch (_) {}
+      }
+      if (list.length === 0 && Array.isArray(displayPkg.imageUrls) && displayPkg.imageUrls.length > 0) {
+        list = [...displayPkg.imageUrls];
+      }
+      if (list.length === 0 && displayPkg.cover_image) {
+        list = [displayPkg.cover_image];
+      }
+      if (list.length === 0 && displayPkg.img) {
+        list = [displayPkg.img];
+      }
+    }
+    if (list.length === 0 && image) {
+      list = [image];
+    }
+    return Array.from(new Set(list.filter(url => typeof url === 'string' && url.trim().length > 0)));
+  }, [displayPkg, image]);
   const title = displayPkg.title || 'Autumn Splendor Expedition';
   const agencyName = displayPkg.agency || displayPkg.agency_name || 'Odyssey Travels';
   const duration = displayPkg.duration || (displayPkg.duration_days ? `${displayPkg.duration_days} Days` : '7 Days');
@@ -1005,9 +1074,20 @@ export default function PackageDetailScreen({ navigation, route }) {
       {/* Sticky Bottom CTA */}
       <View style={[styles.bottomCTA, { paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16 }]}>
         {isTraveler ? (
-          <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+          <View style={{ flexDirection: 'row', gap: 8, width: '100%' }}>
             <TouchableOpacity
-              style={[styles.ctaButton, { flex: 1, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#52396f', flexDirection: 'row', gap: 8 }]}
+              style={[styles.ctaButton, { flex: 1, backgroundColor: '#f0eef5', borderWidth: 1, borderColor: '#967BB6', flexDirection: 'row', gap: 4, paddingHorizontal: 8 }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                navigation.navigate('PackageComparison', { packageIds: [fullPkg.id] });
+              }}
+            >
+              <MaterialIcons name="compare-arrows" size={18} color="#52396f" />
+              <Text style={[styles.ctaButtonText, { color: '#52396f', fontSize: 13 }]}>Compare</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.ctaButton, { flex: 1, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#52396f', flexDirection: 'row', gap: 4, paddingHorizontal: 8 }]}
               activeOpacity={0.8}
               onPress={async () => {
                 try {
@@ -1018,16 +1098,16 @@ export default function PackageDetailScreen({ navigation, route }) {
                 }
               }}
             >
-              <MaterialIcons name="forum" size={20} color="#52396f" />
-              <Text style={[styles.ctaButtonText, { color: '#52396f' }]}>Chat</Text>
+              <MaterialIcons name="forum" size={18} color="#52396f" />
+              <Text style={[styles.ctaButtonText, { color: '#52396f', fontSize: 13 }]}>Chat</Text>
             </TouchableOpacity>
  
             <TouchableOpacity
-              style={[styles.ctaButton, { flex: 2 }]}
+              style={[styles.ctaButton, { flex: 1.8 }]}
               activeOpacity={0.9}
               onPress={() => setCheckoutVisible(true)}
             >
-              <Text style={styles.ctaButtonText}>Book Now</Text>
+              <Text style={[styles.ctaButtonText, { fontSize: 15 }]}>Book Now</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1082,13 +1162,33 @@ export default function PackageDetailScreen({ navigation, route }) {
                     <Text style={styles.summaryPkgDest}>{destination}</Text>
                   </View>
 
+                  {/* Family Trip notice */}
+                  {isFamilyPackage && (
+                    <View style={{ backgroundColor: '#e0d5f7', padding: 12, borderRadius: 10, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <MaterialIcons name="family-restroom" size={22} color="#52396f" />
+                      <Text style={{ fontFamily: 'Manrope_600SemiBold', fontSize: 12, color: '#3d2856', flex: 1 }}>
+                        Family Trip: Minimum 2 travelers required (at least 1 Male and 1 Female).
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Traveler count selector */}
                   <View style={styles.sectionRow}>
-                    <Text style={styles.sectionLabel}>Number of Travelers</Text>
+                    <Text style={styles.sectionLabel}>Total Travelers</Text>
                     <View style={styles.counterRow}>
                       <TouchableOpacity 
                         style={styles.counterBtn} 
-                        onPress={() => numTravelers > 1 && setNumTravelers(numTravelers - 1)}
+                        onPress={() => {
+                          const minAllowed = isFamilyPackage ? 2 : 1;
+                          if (numTravelers > minAllowed) {
+                            const nextTotal = numTravelers - 1;
+                            setNumTravelers(nextTotal);
+                            if (isFamilyPackage && maleCount + femaleCount > nextTotal) {
+                              if (maleCount > 1) setMaleCount(maleCount - 1);
+                              else if (femaleCount > 1) setFemaleCount(femaleCount - 1);
+                            }
+                          }
+                        }}
                         disabled={paymentLoading}
                       >
                         <MaterialIcons name="remove" size={18} color="#2C2F30" />
@@ -1096,13 +1196,86 @@ export default function PackageDetailScreen({ navigation, route }) {
                       <Text style={styles.counterVal}>{numTravelers}</Text>
                       <TouchableOpacity 
                         style={styles.counterBtn} 
-                        onPress={() => setNumTravelers(numTravelers + 1)}
+                        onPress={() => {
+                          const nextTotal = numTravelers + 1;
+                          setNumTravelers(nextTotal);
+                          if (isFamilyPackage) {
+                            setMaleCount(maleCount + 1);
+                          }
+                        }}
                         disabled={paymentLoading}
                       >
                         <MaterialIcons name="add" size={18} color="#2C2F30" />
                       </TouchableOpacity>
                     </View>
                   </View>
+
+                  {/* Gender breakdown for Family Trips */}
+                  {isFamilyPackage && (
+                    <View style={{ gap: 10, marginBottom: 12 }}>
+                      <View style={styles.sectionRow}>
+                        <Text style={styles.sectionLabel}>Male Travelers (min 1)</Text>
+                        <View style={styles.counterRow}>
+                          <TouchableOpacity 
+                            style={styles.counterBtn} 
+                            onPress={() => {
+                              if (maleCount > 1) {
+                                const newM = maleCount - 1;
+                                setMaleCount(newM);
+                                setNumTravelers(newM + femaleCount);
+                              }
+                            }}
+                            disabled={paymentLoading}
+                          >
+                            <MaterialIcons name="remove" size={18} color="#2C2F30" />
+                          </TouchableOpacity>
+                          <Text style={styles.counterVal}>{maleCount}</Text>
+                          <TouchableOpacity 
+                            style={styles.counterBtn} 
+                            onPress={() => {
+                              const newM = maleCount + 1;
+                              setMaleCount(newM);
+                              setNumTravelers(newM + femaleCount);
+                            }}
+                            disabled={paymentLoading}
+                          >
+                            <MaterialIcons name="add" size={18} color="#2C2F30" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <View style={styles.sectionRow}>
+                        <Text style={styles.sectionLabel}>Female Travelers (min 1)</Text>
+                        <View style={styles.counterRow}>
+                          <TouchableOpacity 
+                            style={styles.counterBtn} 
+                            onPress={() => {
+                              if (femaleCount > 1) {
+                                const newF = femaleCount - 1;
+                                setFemaleCount(newF);
+                                setNumTravelers(maleCount + newF);
+                              }
+                            }}
+                            disabled={paymentLoading}
+                          >
+                            <MaterialIcons name="remove" size={18} color="#2C2F30" />
+                          </TouchableOpacity>
+                          <Text style={styles.counterVal}>{femaleCount}</Text>
+                          <TouchableOpacity 
+                            style={styles.counterBtn} 
+                            onPress={() => {
+                              const newF = femaleCount + 1;
+                              setFemaleCount(newF);
+                              setNumTravelers(maleCount + newF);
+                            }}
+                            disabled={paymentLoading}
+                          >
+                            <MaterialIcons name="add" size={18} color="#2C2F30" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  )}
 
                   {/* Financial calculation */}
                   {(() => {
