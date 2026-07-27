@@ -31,3 +31,12 @@ commands.md
 Thumbs.db
 .vscode/
 .idea/
+
+# Extra metadata, chat logs and docs
+Previous-Chat/
+Restoring Destin8 Project Architecture.md
+IMPLEMENTATION_PLAN.md
+PRD.md
+TECH_STACK.md
+APP_FLOW.md
+commands.md

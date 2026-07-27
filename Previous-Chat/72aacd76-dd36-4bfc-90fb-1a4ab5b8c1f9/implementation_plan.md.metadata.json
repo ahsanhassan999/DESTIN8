@@ -1,7 +1,0 @@
-{
-  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
-  "summary":  "Comprehensive implementation plan for Week 2 — the Travel Package module, covering backend CRUD APIs, agency mobile UI for posting packages, traveler mobile UI for browsing packages, and activating the admin moderation panel.",
-  "updatedAt":  "2026-05-15T03:01:03.773312100Z",
-  "version":  "4",
-  "requestFeedback":  true
-}
