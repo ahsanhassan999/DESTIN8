@@ -6,6 +6,10 @@ Run from the backend/ directory:
 import asyncio
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment configurations
+load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
