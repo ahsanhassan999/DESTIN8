@@ -1,0 +1,111 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.container-center {
+  display: flex;
+  justify-content: center;
+  background-color: $clr-sauvignon;
+  width: 100%;
+  box-sizing: border-box;
+  padding-bottom: 1rem;
+}
+
+.top-content-wrapper {
+  @include flex-column-center-x;
+  color: $clr-secondary;
+  font-weight: 600;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  max-width: 1400px;
+  .card-title {
+    font-size: $font-size-h5;
+    margin-top: 2rem;
+  }
+  & .activities-container {
+    width: 100%;
+    padding: 0 1rem;
+    box-sizing: border-box;
+    @include flex-column-center-x;
+
+    .activities-cards {
+      @include flex-column-center-x;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+  }
+
+  .most-iconic, .on-instagram {
+    @include flex-column-center-x;
+    width: 100%;
+    padding: 0 1rem;
+    box-sizing: border-box;
+
+    .top-location-card-wrapper {
+      @include flex-column-center-x;
+      width: 100%;
+    }
+  }
+}
+
+// IPAD
+@media (min-width: 768px) {
+  .top-content-wrapper {
+    & .activities-container {
+      @include flex-start;
+      flex-wrap: wrap;
+      padding: 0 2rem;
+
+      .activities-cards {
+        width: 100%;
+        @include flex-start;
+        flex-direction: row;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+    }
+
+    .card-title {
+      margin-top: 3rem;
+    }
+
+    .most-iconic, .on-instagram {
+      @include flex-start;
+      padding: 0 2rem;
+
+      .top-location-card-wrapper {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+      }
+    }
+  }
+}
+
+// NOTEBOOK
+@media (min-width: 1024px) {
+  .top-content-wrapper {
+    .card-header {
+      font-size: $font-size-h4;
+    }
+    & .activities-container {
+      padding: 0 4.5rem;
+    }
+
+    .most-iconic {
+      padding: 0 4.5rem;
+    }
+  }
+}
+
+// NOTEBOOK BIG
+@media (min-width: 1300px) {
+  .top-content-wrapper {
+    & .activities-container,
+    .most-iconic {
+      padding: 0 6rem;
+    }
+  }
+}

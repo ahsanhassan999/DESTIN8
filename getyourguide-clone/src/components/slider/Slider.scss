@@ -1,0 +1,76 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.slider-container {
+  width: 100%;
+  background-color: $clr-solid-white;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+
+  .splide {
+    position: relative;
+    .splide__arrows {
+      
+      & button {
+        border-radius: 100%;
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        cursor: pointer;
+        padding: 0.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        border: none;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        background-color: $clr-solid-white;
+        
+        &.splide__arrow--prev {
+          transform: rotate(180deg);
+          left: -0.6rem;
+        }
+        
+        &.splide__arrow--next {
+          right: -0.6rem;
+        }
+
+        & svg {
+          width: 1.2rem;
+          height: 1.2rem;
+
+          & path {
+            fill: $clr-terciary;
+          }
+        }
+      }
+    }
+
+    .splide__track {
+      overflow: hidden;
+      .splide__list {
+        display: flex;
+        padding: 0;
+        box-sizing: border-box;
+        list-style: none;
+        margin: 0;
+      }
+    }
+  }
+}
+
+// IPAD
+@media (min-width: 768px) {
+  .slider-container {
+    .splide {
+      .splide__arrows {
+        width: 102%;
+        left: -1%;
+      }
+    }
+  }
+}
+

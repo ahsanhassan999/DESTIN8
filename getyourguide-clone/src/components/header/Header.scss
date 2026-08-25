@@ -1,0 +1,83 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.header-container {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0.5rem 1rem;
+
+  .bottom-search-bar {
+    margin-top: .8rem;
+  }
+
+  .navigation-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .left {
+      display: flex;
+      align-items: center;
+
+      .top-search-bar {
+        display: none;
+      }
+
+      .gyg-logo {
+        width: 4rem;
+        height: 3rem;
+      }
+    }
+  }
+}
+
+
+// IPAD
+@media (min-width: 768px) {
+  .header-container {
+    padding: 1rem 2rem;
+
+    .bottom-search-bar {
+      display: none;
+    }
+  }
+
+  .show-search-bar-header {
+    border-bottom: 1px solid $clr-ghost;
+    padding: 1rem 0;
+    .navigation-bar { 
+      .left {
+        .top-search-bar {
+          display: flex;
+        }
+      }
+    }
+  }
+}
+
+// NOTEBOOK
+@media (min-width: 1024px) {
+  .header-container {
+    padding: 1rem 4.5rem;
+  }
+
+  .show-search-bar-header {
+    .navigation-bar {
+      button.btn {
+        font-size: $font-size-mili;
+        padding: 0.5rem 1.2rem;
+        margin-left: 0.5rem;
+      }
+    }
+  }
+}
+
+// NOTEBOOK BIG
+@media (min-width: 1300px) {
+  .header-container {
+    padding: 0.5rem 6rem;
+  }
+}

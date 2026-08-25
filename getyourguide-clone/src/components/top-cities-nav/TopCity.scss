@@ -1,0 +1,34 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.top-city-container {
+  border: 1px solid $clr-secondary;
+  border-radius: 0.3rem;
+  margin-right: 0.3rem;
+  background-color: $clr-solid-white;
+  padding: 0.5rem 1.25rem;
+  margin-bottom: 0.2rem;
+  font-size: $font-size-base;
+  color: $clr-secondary;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: not-allowed;
+  transition: all .2s ease;
+
+  &:hover {
+    background-color: $clr-secondary;
+    color: $clr-solid-white;
+  }
+
+  &.active {
+    background-color: $clr-jade;
+    border: 1px solid $clr-jade;
+    color: $clr-solid-white;
+  }
+}
+
+.barcelona, .new-york-city, .paris {
+  cursor: pointer; 
+}

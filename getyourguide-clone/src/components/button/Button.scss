@@ -1,0 +1,55 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.btn {
+  font-size: $font-size-base;
+  line-height: 1.5rem;
+  cursor: not-allowed;
+  text-decoration: none;
+  border-radius: 5rem;
+  border: .1rem solid;
+  font-weight: 600;
+  outline: none;
+  @include flex-center-xy;
+
+  .search-icon {
+    @include flex-center-xy;
+    svg {
+      width: 1.5rem;
+      height: 1.4rem;
+      margin-right: .2rem;
+      margin-bottom: .1rem;
+    }
+  }
+
+  &.bg-blue {
+    background-color: $clr-terciary;
+    color: $clr-solid-white;
+    padding: .6rem 2rem;
+    border: none;
+    &:hover {
+      background-color: $clr-science-blue;
+    }
+  }
+
+  &.bg-none {
+    border-color: $clr-terciary;
+    padding: .6rem 1.25rem;
+    color: $clr-terciary;
+    background-color: transparent;
+  }
+}
+
+.allow { 
+  cursor: pointer;
+}
+
+// IPAD
+@media (min-width: 768px) {
+}
+
+// NOTEBOOK
+@media (min-width: 1024px) {
+}

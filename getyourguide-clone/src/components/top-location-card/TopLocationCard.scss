@@ -1,0 +1,139 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.top-location-card-container {
+  position: relative;
+  height: 6.2rem;
+  border-radius: 0.5rem;
+  color: $clr-solid-white;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 0.2rem solid transparent;
+  
+  & img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    width: 100%;
+    height: auto;
+  }
+  
+  .top-location-details {
+    cursor: not-allowed;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.06) 0,
+      rgba(0, 0, 0, 0.42)
+    );
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    height: 100%;
+    text-align: center;
+    position: relative;
+    padding: 1rem;
+    box-sizing: border-box;
+    z-index: 3;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25), 0 1px 15px rgba(0, 0, 0, 0.5);
+    font-size: $font-size-h5;
+  }
+
+  &:hover,
+  &:active {
+    border-color: $clr-terciary;
+    cursor: not-allowed;
+  }
+
+  &span {
+    text-align: center;
+  }
+
+  &.top-city,
+  &.countries {
+    width: 100%;
+    cursor: not-allowed;
+
+    .top-location-details {
+      .count {
+        cursor: not-allowed;
+        margin-top: 0.2rem;
+        font-size: $font-size-base;
+        font-weight: 600;
+      }
+    }
+  }
+
+  &.destinations,
+  &.countries {
+    width: 100%;
+    height: 12rem;
+
+    .top-location-details {
+      @include flex-column-center-x;
+      justify-content: center;
+      .count {
+        background-color: $clr-secondary;
+        border-radius: 5rem;
+        margin-top: 0.4rem;
+        padding: 0.2rem 0.8rem;
+        font-size: $font-size-base;
+      }
+    }
+  }
+
+  &.countries {
+    .count {
+      display: none;
+    }
+  }
+}
+
+// IPAD
+@media (min-width: 768px) {
+  .top-location-card-container {
+    & img {
+      width: auto;
+      height: 100%;
+    }
+
+    .top-location-details {
+      @include flex-column-center-x;
+      justify-content: center;
+
+      .count {
+        background-color: $clr-secondary;
+        border-radius: 5rem;
+        margin-top: 0.4rem;
+        padding: 0.2rem 0.8rem;
+      }
+    }
+
+    &.top-city,
+    &.countries,
+    &.destinations {
+      width: 30%;
+      height: 12rem;
+    }
+  }
+}
+
+// NOTEBOOK
+@media (min-width: 1024px) {
+  .top-location-card-container {
+    & img {
+      width: 100%;
+    }
+
+    &.top-city,
+    &.countries,
+    &.destinations {
+      width: 30%;
+      height: 12rem;
+    }
+  }
+}

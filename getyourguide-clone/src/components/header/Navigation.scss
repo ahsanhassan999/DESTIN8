@@ -1,0 +1,186 @@
+@import "./../../styles/colors";
+@import "./../../styles/fonts-props";
+@import "./../../styles/variables";
+@import "./../../styles/flex-styles";
+
+.navigation-list-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: $clr-secondary;
+  height: 100%;
+  line-height: 2.5rem;
+
+  .signup-btn {
+    display: none;
+    margin-left: .5rem;
+  }
+
+  .nav-item:hover .dropdown-content {
+    visibility: visible;
+    opacity: 1;
+    transition: all 0.2s ease-out;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    position: relative;
+    margin-left: 1rem;
+    z-index: 5;
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      transform: perspective(1px) translateZ(0);
+      box-shadow: 0 0 1px rgba(0, 0, 0, 0);
+      position: relative;
+      overflow: hidden;
+      cursor: not-allowed;
+
+      .item-info {
+        .caret {
+          @include flex-center-xy;
+        }
+      }
+    }
+
+    .dropdown-content {
+      position: absolute;
+      top: 2.5rem;
+      z-index: 10;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 0 4px 0 #e8e9ec;
+      border: 0.01rem solid $clr-ghost;
+      background-color: $clr-solid-white;
+      box-sizing: border-box;
+      font-size: 0.8rem;
+
+      padding: 2rem 3rem;
+      right: 0rem;
+
+      span {
+        border-bottom: 0.01rem solid $clr-ghost;
+        margin-bottom: 1rem;
+      }
+
+      button {
+        background-color: $clr-solid-white;
+        padding: 1rem;
+        text-decoration: none;
+        border: none;
+        color: $clr-secondary;
+      }
+    }
+
+    & span {
+      font-weight: 600;
+      font-size: $font-size-mili;
+      margin-left: 0.2rem;
+    }
+
+    & svg {
+      width: 1rem;
+      height: 1rem;
+      & path {
+        fill: $clr-secondary;
+      }
+    }
+  }
+
+  .other-icons {
+    .menu-item {
+      .item-info {
+        display: none;
+      }
+    }
+  }
+
+  .curr-lang-icons {
+    .menu-item {
+      .item-info {
+        height: fit-content;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        span {
+          padding: 0;
+          margin: 0;
+        }
+      }
+    }
+  }
+}
+
+// DEFAULT CELLPHONE SCREEN
+@media (min-width: 325px) {
+  .navigation-list-container {
+    .curr-lang-icons {
+      .menu-item {
+        .item-info {
+          flex-direction: row;
+        }
+      }
+    }
+  }
+}
+
+// IPAD
+@media (min-width: 768px) {
+  .navigation-list-container {
+    padding: 0;
+    .show-ipad {
+      display: flex;
+      margin-left: .5rem;
+      button {
+        padding: .2rem .5rem;
+        font-size: $font-size-mili;
+      }
+    }
+  }
+}
+
+// NOTEBOOK
+@media (min-width: 1024px) {
+  .navigation-list-container {
+    .signup-btn {
+      display: flex;
+    }
+
+    .nav-item {
+      .menu-item:hover::before,
+      .menu-item:focus:before,
+      .menu-item:active:before {
+        left: 0;
+        right: 0;
+      }
+
+      .menu-item:before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        left: 51%;
+        right: 51%;
+        bottom: 0;
+        background: $clr-secondary;
+        height: 4px;
+        -webkit-transition-property: left, right;
+        transition-property: left, right;
+        transition-duration: 0.2s;
+        transition-timing-function: ease-out;
+      }
+    }
+
+    .other-icons {
+      .menu-item {
+        .item-info {
+          display: flex;
+        }
+      }
+    }
+  }
+}
