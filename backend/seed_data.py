@@ -2,12 +2,21 @@ import asyncio
 import json
 import uuid
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environmental variables from .env first
+load_dotenv()
+
 from sqlalchemy.future import select
-from app.database import engine, AsyncSession, async_sessionmaker
+from app.database import engine, AsyncSession, async_sessionmaker, Base
 from app.models import User, AgencyProfile, Package, Review, Booking, UserRole, UserStatus, BookingStatus
 from app.core.security import hash_password
 
 async def seed_database():
+    # Make sure all tables are created on the connected database
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     async with async_session() as db:
